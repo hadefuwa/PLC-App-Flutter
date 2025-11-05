@@ -58,8 +58,8 @@ A beautiful Flutter app to track multiple good habits (fasting, YouTube videos, 
 
 1. **Clone the repository**
    ```bash
-   git clone https://github.com/yourusername/vice-app.git
-   cd vice-app
+   git clone https://github.com/hadefuwa/habit-app.git
+   cd habit-app
    ```
 
 2. **Install dependencies**
