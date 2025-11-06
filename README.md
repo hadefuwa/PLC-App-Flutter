@@ -42,6 +42,14 @@ A beautiful Flutter app showcasing Matrix TSL industrial training products. Brow
 
 *Add screenshots of your app here*
 
+## 📥 Download APK
+
+**Want to download the app directly to your phone?**
+
+👉 **[Download MatrixTSL-v1.0.0.apk](https://github.com/hadefuwa/matrix-android-app/raw/main/releases/MatrixTSL-v1.0.0.apk)**
+
+Or visit the [releases folder](https://github.com/hadefuwa/matrix-android-app/tree/main/releases) for installation instructions.
+
 ## 🚀 Getting Started
 
 ### Prerequisites
