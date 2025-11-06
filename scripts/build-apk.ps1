@@ -3,7 +3,7 @@ Write-Host "Building APK for Android..." -ForegroundColor Green
 Write-Host ""
 
 # Navigate to project directory
-Set-Location "C:\Users\Hamed\Documents\vice-app"
+Set-Location "C:\Users\Hamed\Documents\matrix-app"
 
 # Try to find and set Java 17
 $java17Paths = @(
@@ -45,21 +45,32 @@ if ($LASTEXITCODE -eq 0) {
     Write-Host ""
     Write-Host "✅ APK built successfully!" -ForegroundColor Green
     Write-Host ""
-    Write-Host "APK Location:" -ForegroundColor Yellow
-    Write-Host "  build\app\outputs\flutter-apk\app-release.apk" -ForegroundColor Cyan
-    Write-Host ""
-    Write-Host "Next steps:" -ForegroundColor Yellow
-    Write-Host "  1. Transfer the APK to your phone (email, USB, cloud storage)" -ForegroundColor White
-    Write-Host "  2. Enable 'Unknown sources' in phone settings" -ForegroundColor White
-    Write-Host "  3. Open the APK file on your phone and install" -ForegroundColor White
-    Write-Host ""
     
-    # Open the APK folder
     $apkPath = "build\app\outputs\flutter-apk\app-release.apk"
+    $newApkName = "MatrixTSL-v1.0.0.apk"
+    $newApkPath = "build\app\outputs\flutter-apk\$newApkName"
+    
     if (Test-Path $apkPath) {
-        $folderPath = Split-Path -Parent $apkPath
+        Write-Host "Renaming APK to $newApkName..." -ForegroundColor Cyan
+        Rename-Item -Path $apkPath -NewName $newApkName -Force
+        Write-Host ""
+        Write-Host "✅ APK renamed successfully!" -ForegroundColor Green
+        Write-Host ""
+        Write-Host "APK Location:" -ForegroundColor Yellow
+        Write-Host "  $newApkPath" -ForegroundColor Cyan
+        Write-Host ""
+        Write-Host "Next steps:" -ForegroundColor Yellow
+        Write-Host "  1. Transfer the APK to your phone (email, USB, cloud storage)" -ForegroundColor White
+        Write-Host "  2. Enable 'Unknown sources' in phone settings" -ForegroundColor White
+        Write-Host "  3. Open the APK file on your phone and install" -ForegroundColor White
+        Write-Host ""
+        
+        # Open the APK folder
+        $folderPath = Split-Path -Parent $newApkPath
         Write-Host "Opening APK folder..." -ForegroundColor Cyan
         Start-Process explorer.exe -ArgumentList $folderPath
+    } else {
+        Write-Host "⚠️  APK file not found at expected location." -ForegroundColor Yellow
     }
 } else {
     Write-Host ""
