@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:webview_flutter/webview_flutter.dart';
+import '../widgets/logo_widget.dart';
 
 class FactoryGameScreen extends StatefulWidget {
   const FactoryGameScreen({super.key});
@@ -20,42 +21,13 @@ class _FactoryGameScreenState extends State<FactoryGameScreen> {
   }
 
   void _initializeWebView() {
-    // Create HTML page with the game embed
-    const htmlContent = '''
-<!DOCTYPE html>
-<html>
-<head>
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <style>
-        body {
-            margin: 0;
-            padding: 0;
-            background-color: #0A0A0F;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            min-height: 100vh;
-            overflow: hidden;
-        }
-        #game-container {
-            width: 100%;
-            height: 100vh;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-        }
-    </style>
-</head>
-<body>
-    <div id="game-container">
-        <div><script src="https://cdn.htmlgames.com/embed.js?game=PixelFactory&bgcolor=white"></script></div>
-    </div>
-</body>
-</html>
-''';
-
+    // Try loading the game directly from HTMLGames website
+    // This is more reliable than embedding the script
+    const gameUrl = 'https://www.htmlgames.com/PixelFactory/';
+    
     _controller = WebViewController()
       ..setJavaScriptMode(JavaScriptMode.unrestricted)
+      ..enableZoom(false)
       ..setNavigationDelegate(
         NavigationDelegate(
           onPageStarted: (String url) {
@@ -68,18 +40,34 @@ class _FactoryGameScreenState extends State<FactoryGameScreen> {
             setState(() {
               _isLoading = false;
             });
+            // Give the game more time to load
+            Future.delayed(const Duration(seconds: 2), () {
+              if (mounted) {
+                setState(() {
+                  _isLoading = false;
+                });
+              }
+            });
           },
           onWebResourceError: (WebResourceError error) {
             setState(() {
               _isLoading = false;
               _errorMessage = error.description.isNotEmpty 
                   ? error.description 
-                  : 'Failed to load game';
+                  : 'Failed to load game. Please check your internet connection.';
             });
+          },
+          onNavigationRequest: (NavigationRequest request) {
+            // Allow navigation within the game domain
+            if (request.url.startsWith('https://www.htmlgames.com') || 
+                request.url.startsWith('https://cdn.htmlgames.com')) {
+              return NavigationDecision.navigate;
+            }
+            return NavigationDecision.navigate;
           },
         ),
       )
-      ..loadHtmlString(htmlContent);
+      ..loadRequest(Uri.parse(gameUrl));
   }
 
   @override
@@ -88,21 +76,28 @@ class _FactoryGameScreenState extends State<FactoryGameScreen> {
     
     return Scaffold(
       appBar: AppBar(
-        title: ShaderMask(
-          shaderCallback: (bounds) => LinearGradient(
-            colors: [
-              purple,
-              purple.withValues(alpha: 0.7),
-              const Color(0xFFE0B0FF),
-            ],
-          ).createShader(bounds),
-          child: const Text(
-            'Factory Game',
-            style: TextStyle(
-              color: Colors.white,
-              fontWeight: FontWeight.bold,
+        title: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const LogoWidget(width: 28, height: 28, glowRadius: 6),
+            const SizedBox(width: 10),
+            ShaderMask(
+              shaderCallback: (bounds) => LinearGradient(
+                colors: [
+                  purple,
+                  purple.withValues(alpha: 0.7),
+                  const Color(0xFFE0B0FF),
+                ],
+              ).createShader(bounds),
+              child: const Text(
+                'Factory Game',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
             ),
-          ),
+          ],
         ),
         backgroundColor: const Color(0xFF0F0F1E),
         foregroundColor: const Color(0xFFE0B0FF),

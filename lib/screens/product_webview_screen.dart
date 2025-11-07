@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 import '../models/product.dart';
+import '../widgets/logo_widget.dart';
 
 class ProductWebViewScreen extends StatefulWidget {
   final Product product;
@@ -60,40 +61,50 @@ class _ProductWebViewScreenState extends State<ProductWebViewScreen> {
     
     return Scaffold(
       appBar: AppBar(
-        title: ShaderMask(
-          shaderCallback: (bounds) => LinearGradient(
-            colors: [
-              purple,
-              purple.withValues(alpha: 0.7),
-              const Color(0xFFE0B0FF),
-            ],
-          ).createShader(bounds),
-          child: Hero(
-            tag: 'product-title-${widget.product.id}',
-            flightShuttleBuilder: (
-              BuildContext flightContext,
-              Animation<double> animation,
-              HeroFlightDirection flightDirection,
-              BuildContext fromHeroContext,
-              BuildContext toHeroContext,
-            ) {
-              final Hero toHero = toHeroContext.widget as Hero;
-              return RotationTransition(
-                turns: animation,
-                child: toHero.child,
-              );
-            },
-            child: Material(
-              color: Colors.transparent,
-              child: Text(
-                widget.product.name,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.bold,
+        title: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const LogoWidget(width: 28, height: 28, glowRadius: 6),
+            const SizedBox(width: 10),
+            Expanded(
+              child: ShaderMask(
+                shaderCallback: (bounds) => LinearGradient(
+                  colors: [
+                    purple,
+                    purple.withValues(alpha: 0.7),
+                    const Color(0xFFE0B0FF),
+                  ],
+                ).createShader(bounds),
+                child: Hero(
+                  tag: 'product-title-${widget.product.id}',
+                  flightShuttleBuilder: (
+                    BuildContext flightContext,
+                    Animation<double> animation,
+                    HeroFlightDirection flightDirection,
+                    BuildContext fromHeroContext,
+                    BuildContext toHeroContext,
+                  ) {
+                    final Hero toHero = toHeroContext.widget as Hero;
+                    return RotationTransition(
+                      turns: animation,
+                      child: toHero.child,
+                    );
+                  },
+                  child: Material(
+                    color: Colors.transparent,
+                    child: Text(
+                      widget.product.name,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
                 ),
               ),
             ),
-          ),
+          ],
         ),
         backgroundColor: const Color(0xFF0F0F1E),
         foregroundColor: const Color(0xFFE0B0FF),

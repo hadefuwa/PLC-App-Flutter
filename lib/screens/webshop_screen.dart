@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:webview_flutter/webview_flutter.dart';
+import '../widgets/logo_widget.dart';
 
 class WebshopScreen extends StatefulWidget {
   const WebshopScreen({super.key});
@@ -54,21 +55,28 @@ class _WebshopScreenState extends State<WebshopScreen> {
     
     return Scaffold(
       appBar: AppBar(
-        title: ShaderMask(
-          shaderCallback: (bounds) => LinearGradient(
-            colors: [
-              purple,
-              purple.withValues(alpha: 0.7),
-              const Color(0xFFE0B0FF),
-            ],
-          ).createShader(bounds),
-          child: const Text(
-            'Matrix TSL Webshop',
-            style: TextStyle(
-              color: Colors.white,
-              fontWeight: FontWeight.bold,
+        title: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const LogoWidget(width: 28, height: 28, glowRadius: 6),
+            const SizedBox(width: 10),
+            ShaderMask(
+              shaderCallback: (bounds) => LinearGradient(
+                colors: [
+                  purple,
+                  purple.withValues(alpha: 0.7),
+                  const Color(0xFFE0B0FF),
+                ],
+              ).createShader(bounds),
+              child: const Text(
+                'Matrix TSL Webshop',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
             ),
-          ),
+          ],
         ),
         backgroundColor: const Color(0xFF0F0F1E),
         foregroundColor: const Color(0xFFE0B0FF),

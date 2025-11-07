@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../widgets/logo_widget.dart';
 
 class SettingsScreen extends StatelessWidget {
   const SettingsScreen({super.key});
@@ -9,21 +10,28 @@ class SettingsScreen extends StatelessWidget {
     
     return Scaffold(
       appBar: AppBar(
-        title: ShaderMask(
-          shaderCallback: (bounds) => LinearGradient(
-            colors: [
-              purple,
-              purple.withValues(alpha: 0.7),
-              const Color(0xFFE0B0FF),
-            ],
-          ).createShader(bounds),
-          child: const Text(
-            'Settings',
-            style: TextStyle(
-              color: Colors.white,
-              fontWeight: FontWeight.bold,
+        title: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const LogoWidget(width: 28, height: 28, glowRadius: 6),
+            const SizedBox(width: 10),
+            ShaderMask(
+              shaderCallback: (bounds) => LinearGradient(
+                colors: [
+                  purple,
+                  purple.withValues(alpha: 0.7),
+                  const Color(0xFFE0B0FF),
+                ],
+              ).createShader(bounds),
+              child: const Text(
+                'Settings',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
             ),
-          ),
+          ],
         ),
         backgroundColor: const Color(0xFF0F0F1E),
         foregroundColor: const Color(0xFFE0B0FF),

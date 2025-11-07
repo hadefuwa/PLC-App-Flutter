@@ -2,6 +2,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import '../models/product.dart';
 import '../widgets/hexagon_background.dart';
+import '../widgets/logo_widget.dart';
 import 'product_webview_screen.dart';
 import 'about_screen.dart';
 import 'settings_screen.dart';
@@ -9,6 +10,7 @@ import 'webshop_screen.dart';
 import 'video_screen.dart';
 import 'factory_game_screen.dart';
 import 'model_3d_viewer_screen.dart';
+import 'contact_screen.dart';
 
 class ProductsListScreen extends StatefulWidget {
   const ProductsListScreen({super.key});
@@ -104,21 +106,28 @@ class _ProductsListScreenState extends State<ProductsListScreen>
 
     return Scaffold(
       appBar: AppBar(
-        title: ShaderMask(
-          shaderCallback: (bounds) => LinearGradient(
-            colors: [
-              purple,
-              purple.withValues(alpha: 0.7),
-              const Color(0xFFE0B0FF),
-            ],
-          ).createShader(bounds),
-          child: const Text(
-            'Matrix TSL Products',
-            style: TextStyle(
-              color: Colors.white,
-              fontWeight: FontWeight.bold,
+        title: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const LogoWidget(width: 32, height: 32, glowRadius: 8),
+            const SizedBox(width: 12),
+            ShaderMask(
+              shaderCallback: (bounds) => LinearGradient(
+                colors: [
+                  purple,
+                  purple.withValues(alpha: 0.7),
+                  const Color(0xFFE0B0FF),
+                ],
+              ).createShader(bounds),
+              child: const Text(
+                'Matrix TSL Products',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
             ),
-          ),
+          ],
         ),
         backgroundColor: const Color(0xFF0F0F1E),
         foregroundColor: const Color(0xFFE0B0FF),
@@ -205,16 +214,11 @@ class _ProductsListScreenState extends State<ProductsListScreen>
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Container(
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: 0.2),
-                      shape: BoxShape.circle,
-                    ),
-                    child: const Icon(
-                      Icons.apps,
-                      size: 32,
-                      color: Colors.white,
+                  Center(
+                    child: LogoWidget(
+                      width: 64,
+                      height: 64,
+                      glowRadius: 12,
                     ),
                   ),
                   const SizedBox(height: 16),
@@ -225,6 +229,7 @@ class _ProductsListScreenState extends State<ProductsListScreen>
                       fontSize: 24,
                       fontWeight: FontWeight.bold,
                     ),
+                    textAlign: TextAlign.center,
                   ),
                   const SizedBox(height: 4),
                   Text(
@@ -233,6 +238,7 @@ class _ProductsListScreenState extends State<ProductsListScreen>
                       color: Colors.white.withValues(alpha: 0.8),
                       fontSize: 14,
                     ),
+                    textAlign: TextAlign.center,
                   ),
                 ],
               ),
@@ -331,6 +337,20 @@ class _ProductsListScreenState extends State<ProductsListScreen>
                         context,
                         MaterialPageRoute(
                           builder: (context) => const AboutScreen(),
+                        ),
+                      );
+                    },
+                  ),
+                  _buildDrawerItem(
+                    context,
+                    icon: Icons.phone_outlined,
+                    title: 'Contact',
+                    onTap: () {
+                      Navigator.pop(context);
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => const ContactScreen(),
                         ),
                       );
                     },
