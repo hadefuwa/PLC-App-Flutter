@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../screens/about_screen.dart';
 import '../screens/contact_screen.dart';
+import '../screens/model_3d_viewer_screen.dart';
 import 'logo_widget.dart';
 
 class AppDrawer extends StatelessWidget {
@@ -58,6 +59,20 @@ class AppDrawer extends StatelessWidget {
               child: ListView(
                 padding: const EdgeInsets.symmetric(vertical: 8),
                 children: [
+                  _buildDrawerItem(
+                    context,
+                    icon: Icons.view_in_ar,
+                    title: '3D Models',
+                    onTap: () {
+                      Navigator.pop(context);
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => const Model3DViewerScreen(),
+                        ),
+                      );
+                    },
+                  ),
                   _buildDrawerItem(
                     context,
                     icon: Icons.info_outline,

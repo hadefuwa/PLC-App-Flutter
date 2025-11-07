@@ -18,17 +18,7 @@ class _SFAnalyticsScreenState extends State<SFAnalyticsScreen> {
   Widget build(BuildContext context) {
     final simulator = SimulatorService();
 
-    return Scaffold(
-      appBar: AppBar(
-        leading: Builder(
-          builder: (context) => IconButton(
-            icon: const Icon(Icons.menu),
-            onPressed: () => Scaffold.of(context).openDrawer(),
-          ),
-        ),
-        title: const Text('Analytics'),
-      ),
-      body: StreamBuilder<SimulatorState>(
+    return StreamBuilder<SimulatorState>(
         stream: simulator.stateStream,
         initialData: simulator.currentState,
         builder: (context, snapshot) {
@@ -159,8 +149,7 @@ class _SFAnalyticsScreenState extends State<SFAnalyticsScreen> {
             ),
           );
         },
-      ),
-    );
+      );
   }
 
   Future<void> _exportMetrics(SimulatorService simulator) async {

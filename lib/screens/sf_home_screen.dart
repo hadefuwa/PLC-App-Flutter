@@ -10,25 +10,7 @@ class SFHomeScreen extends StatelessWidget {
     final simulator = SimulatorService();
     final purple = Theme.of(context).colorScheme.primary;
 
-    return Scaffold(
-      appBar: AppBar(
-        leading: Builder(
-          builder: (context) => IconButton(
-            icon: const Icon(Icons.menu),
-            onPressed: () => Scaffold.of(context).openDrawer(),
-          ),
-        ),
-        title: const Text('Smart Factory'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.settings_outlined),
-            onPressed: () {
-              Navigator.pushNamed(context, '/settings');
-            },
-          ),
-        ],
-      ),
-      body: StreamBuilder<SimulatorState>(
+    return StreamBuilder<SimulatorState>(
         stream: simulator.stateStream,
         initialData: simulator.currentState,
         builder: (context, snapshot) {
@@ -75,8 +57,7 @@ class SFHomeScreen extends StatelessWidget {
             ),
           );
         },
-      ),
-    );
+      );
   }
 }
 

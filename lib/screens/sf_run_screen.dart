@@ -9,17 +9,7 @@ class SFRunScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final simulator = SimulatorService();
 
-    return Scaffold(
-      appBar: AppBar(
-        leading: Builder(
-          builder: (context) => IconButton(
-            icon: const Icon(Icons.menu),
-            onPressed: () => Scaffold.of(context).openDrawer(),
-          ),
-        ),
-        title: const Text('Run Control'),
-      ),
-      body: StreamBuilder<SimulatorState>(
+    return StreamBuilder<SimulatorState>(
         stream: simulator.stateStream,
         initialData: simulator.currentState,
         builder: (context, snapshot) {
@@ -41,8 +31,7 @@ class SFRunScreen extends StatelessWidget {
             ),
           );
         },
-      ),
-    );
+      );
   }
 }
 

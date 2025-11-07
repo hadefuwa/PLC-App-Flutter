@@ -24,6 +24,14 @@ class _SmartFactoryMainState extends State<SmartFactoryMain> {
     const SFAnalyticsScreen(),
   ];
 
+  static final List<String> _titles = [
+    'Smart Factory',
+    'Run Control',
+    'I/O Live',
+    'Worksheets',
+    'Analytics',
+  ];
+
   void _onItemTapped(int index) {
     setState(() {
       _selectedIndex = index;
@@ -34,6 +42,19 @@ class _SmartFactoryMainState extends State<SmartFactoryMain> {
   Widget build(BuildContext context) {
     return Scaffold(
       drawer: const AppDrawer(),
+      appBar: AppBar(
+        title: Text(_titles[_selectedIndex]),
+        actions: _selectedIndex == 0
+            ? [
+                IconButton(
+                  icon: const Icon(Icons.settings_outlined),
+                  onPressed: () {
+                    Navigator.pushNamed(context, '/settings');
+                  },
+                ),
+              ]
+            : null,
+      ),
       body: _screens[_selectedIndex],
       bottomNavigationBar: BottomNavigationBar(
         type: BottomNavigationBarType.fixed,

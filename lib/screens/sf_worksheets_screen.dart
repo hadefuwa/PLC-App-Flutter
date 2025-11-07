@@ -16,17 +16,7 @@ class _SFWorksheetsScreenState extends State<SFWorksheetsScreen> {
     final worksheets = Worksheet.getWorksheets();
     final completionPercent = (_completedWorksheets.length / worksheets.length * 100).toInt();
 
-    return Scaffold(
-      appBar: AppBar(
-        leading: Builder(
-          builder: (context) => IconButton(
-            icon: const Icon(Icons.menu),
-            onPressed: () => Scaffold.of(context).openDrawer(),
-          ),
-        ),
-        title: const Text('Worksheets'),
-      ),
-      body: Column(
+    return Column(
         children: [
           Container(
             padding: const EdgeInsets.all(16),
@@ -91,8 +81,7 @@ class _SFWorksheetsScreenState extends State<SFWorksheetsScreen> {
             ),
           ),
         ],
-      ),
-    );
+      );
   }
 
   void _openWorksheet(BuildContext context, Worksheet worksheet) {
