@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import '../models/simulator_state.dart';
 import '../services/simulator_service.dart';
+import '../services/plc_communication_service.dart';
+import 'sf_data_stream_log_screen.dart';
 
 class SFSettingsScreen extends StatefulWidget {
   const SFSettingsScreen({super.key});
@@ -12,11 +14,79 @@ class SFSettingsScreen extends StatefulWidget {
 class _SFSettingsScreenState extends State<SFSettingsScreen> {
   double _speedScaling = 1.0;
   bool _randomFaults = false;
+  bool _isLiveMode = false;
+  String _plcIpAddress = '192.168.1.100';
+  final TextEditingController _ipController = TextEditingController();
+  final PLCCommunicationService _plcService = PLCCommunicationService();
+  bool _isConnecting = false;
+  
   final Map<PartMaterial, double> _materialMix = {
     PartMaterial.steel: 33.0,
     PartMaterial.aluminium: 33.0,
     PartMaterial.plastic: 34.0,
   };
+
+  @override
+  void initState() {
+    super.initState();
+    _loadSettings();
+  }
+
+  Future<void> _loadSettings() async {
+    await _plcService.initialize();
+    setState(() {
+      _isLiveMode = _plcService.isLiveMode;
+      _plcIpAddress = _plcService.plcIpAddress;
+      _ipController.text = _plcIpAddress;
+    });
+  }
+
+  @override
+  void dispose() {
+    _ipController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _handleModeChange(bool isLive) async {
+    if (isLive == _isLiveMode) return;
+
+    setState(() {
+      _isConnecting = isLive;
+    });
+
+    await _plcService.setLiveMode(isLive);
+    
+    if (isLive) {
+      final connected = await _plcService.connect();
+      if (!connected) {
+        _showMessage('Failed to connect to PLC. Check IP address and try again.');
+      }
+    }
+
+    setState(() {
+      _isLiveMode = isLive;
+      _isConnecting = false;
+    });
+  }
+
+  Future<void> _handleIpChange() async {
+    final newIp = _ipController.text.trim();
+    if (newIp.isEmpty || newIp == _plcIpAddress) return;
+
+    // Basic IP validation
+    final ipRegex = RegExp(r'^(\d{1,3}\.){3}\d{1,3}$');
+    if (!ipRegex.hasMatch(newIp)) {
+      _showMessage('Invalid IP address format');
+      _ipController.text = _plcIpAddress;
+      return;
+    }
+
+    await _plcService.setPlcIpAddress(newIp);
+    setState(() {
+      _plcIpAddress = newIp;
+    });
+    _showMessage('PLC IP address updated');
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -38,17 +108,91 @@ class _SFSettingsScreenState extends State<SFSettingsScreen> {
                   _RadioTile(
                     title: 'Simulation',
                     subtitle: 'Run with simulated data',
-                    value: true,
-                    groupValue: true,
-                    onChanged: (value) {},
+                    value: false,
+                    groupValue: _isLiveMode,
+                    onChanged: _isConnecting ? null : (value) => _handleModeChange(false),
                   ),
                   _RadioTile(
                     title: 'Live',
-                    subtitle: 'Coming later - Connect to real hardware',
-                    value: false,
-                    groupValue: true,
-                    onChanged: null,
+                    subtitle: _isConnecting 
+                        ? 'Connecting to PLC...'
+                        : _plcService.isConnected
+                            ? 'Connected to PLC at $_plcIpAddress'
+                            : 'Connect to real hardware via PLC',
+                    value: true,
+                    groupValue: _isLiveMode,
+                    onChanged: _isConnecting ? null : (value) => _handleModeChange(true),
                   ),
+                  if (_isLiveMode) ...[
+                    const SizedBox(height: 16),
+                    const Divider(),
+                    const SizedBox(height: 16),
+                    TextField(
+                      controller: _ipController,
+                      decoration: InputDecoration(
+                        labelText: 'PLC IP Address',
+                        hintText: '192.168.1.100',
+                        prefixIcon: const Icon(Icons.settings_ethernet),
+                        suffixIcon: IconButton(
+                          icon: const Icon(Icons.check),
+                          onPressed: _handleIpChange,
+                          tooltip: 'Save IP address',
+                        ),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                      keyboardType: TextInputType.number,
+                      onSubmitted: (_) => _handleIpChange(),
+                    ),
+                    const SizedBox(height: 12),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: OutlinedButton.icon(
+                            onPressed: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) => const DataStreamLogScreen(),
+                                ),
+                              );
+                            },
+                            icon: const Icon(Icons.list_alt),
+                            label: const Text('View Data Stream Log'),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        IconButton(
+                          icon: Icon(
+                            _plcService.isConnected ? Icons.link : Icons.link_off,
+                            color: _plcService.isConnected ? Colors.green : Colors.red,
+                          ),
+                          onPressed: _isConnecting
+                              ? null
+                              : () async {
+                                  if (_plcService.isConnected) {
+                                    _plcService.disconnect();
+                                    _showMessage('Disconnected from PLC');
+                                  } else {
+                                    setState(() => _isConnecting = true);
+                                    final connected = await _plcService.connect();
+                                    setState(() => _isConnecting = false);
+                                    if (connected) {
+                                      _showMessage('Connected to PLC');
+                                    } else {
+                                      _showMessage('Failed to connect. Check IP address.');
+                                    }
+                                  }
+                                  setState(() {});
+                                },
+                          tooltip: _plcService.isConnected
+                              ? 'Disconnect from PLC'
+                              : 'Connect to PLC',
+                        ),
+                      ],
+                    ),
+                  ],
                 ],
               ),
             ),

@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import '../models/simulator_state.dart';
 import '../services/simulator_service.dart';
+import '../services/plc_communication_service.dart';
+import '../widgets/app_drawer.dart';
 
 class SFHomeScreen extends StatelessWidget {
   const SFHomeScreen({super.key});
@@ -8,6 +10,7 @@ class SFHomeScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final simulator = SimulatorService();
+    final plcService = PLCCommunicationService();
     final purple = Theme.of(context).colorScheme.primary;
 
     return StreamBuilder<SimulatorState>(
@@ -15,45 +18,84 @@ class SFHomeScreen extends StatelessWidget {
         initialData: simulator.currentState,
         builder: (context, snapshot) {
           final state = snapshot.data!;
+          final isLiveMode = plcService.isLiveMode;
+          final isConnected = plcService.isConnected;
 
-          return SingleChildScrollView(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                // Connection Badge
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                  decoration: BoxDecoration(
-                    color: Colors.blue.withValues(alpha: 0.2),
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: Colors.blue),
-                  ),
-                  child: const Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(Icons.computer, color: Colors.blue, size: 16),
-                      SizedBox(width: 8),
-                      Text(
-                        'Simulation mode',
-                        style: TextStyle(color: Colors.blue, fontWeight: FontWeight.w600),
-                      ),
-                    ],
-                  ),
+          return Scaffold(
+            drawer: const AppDrawer(),
+            appBar: AppBar(
+              title: const Text('Smart Factory'),
+              actions: [
+                IconButton(
+                  icon: const Icon(Icons.settings_outlined),
+                  onPressed: () {
+                    Navigator.pushNamed(context, '/settings');
+                  },
                 ),
-                const SizedBox(height: 24),
-
-                // Status Card
-                _StatusCard(state: state, purple: purple),
-                const SizedBox(height: 24),
-
-                // Live Metrics
-                _MetricsRow(state: state),
-                const SizedBox(height: 24),
-
-                // Control Buttons
-                _ControlButtons(state: state, simulator: simulator),
               ],
+            ),
+            body: SingleChildScrollView(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  // Connection Badge
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: isLiveMode
+                          ? (isConnected ? Colors.green.withValues(alpha: 0.2) : Colors.red.withValues(alpha: 0.2))
+                          : Colors.blue.withValues(alpha: 0.2),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(
+                        color: isLiveMode
+                            ? (isConnected ? Colors.green : Colors.red)
+                            : Colors.blue,
+                      ),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          isLiveMode
+                              ? (isConnected ? Icons.link : Icons.link_off)
+                              : Icons.computer,
+                          color: isLiveMode
+                              ? (isConnected ? Colors.green : Colors.red)
+                              : Colors.blue,
+                          size: 16,
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          isLiveMode
+                              ? (isConnected
+                                  ? 'Live Mode - Connected to PLC'
+                                  : 'Live Mode - Disconnected')
+                              : 'Simulation Mode',
+                          style: TextStyle(
+                            color: isLiveMode
+                                ? (isConnected ? Colors.green : Colors.red)
+                                : Colors.blue,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+
+                  // Status Card
+                  _StatusCard(state: state, purple: purple),
+                  const SizedBox(height: 24),
+
+                  // Live Metrics
+                  _MetricsRow(state: state),
+                  const SizedBox(height: 24),
+
+                  // Control Buttons
+                  _ControlButtons(state: state, simulator: simulator),
+                ],
+              ),
             ),
           );
         },
