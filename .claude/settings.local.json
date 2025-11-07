@@ -22,7 +22,9 @@
       "Bash(convert:*)",
       "Bash(python:*)",
       "Bash(\"/c/Users/Hamed/Documents/flutter/bin/flutter.bat\" pub add flutter_launcher_icons --dev)",
-      "Bash(\"/c/Users/Hamed/Documents/flutter/bin/flutter.bat\" pub run flutter_launcher_icons)"
+      "Bash(\"/c/Users/Hamed/Documents/flutter/bin/flutter.bat\" pub run flutter_launcher_icons)",
+      "Bash(identify:*)",
+      "Bash(cmd.exe /c scripts\\build-apk.bat)"
     ],
     "deny": [],
     "ask": []
