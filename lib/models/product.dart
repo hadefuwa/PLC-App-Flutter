@@ -18,28 +18,36 @@ class Product {
   static List<Product> getProducts() {
     return [
       Product(
-        id: 'IM0004',
-        name: 'Maintenance of Closed Loop Systems',
-        description: 'Comprehensive training platform for industrial maintenance technicians. Master closed-loop control systems through interactive worksheets and real-world scenarios.',
-        url: 'https://matrixtsl.github.io/IM0004/index.html',
-        icon: '⚙️',
+        id: 'SF-CONVEYOR',
+        name: 'Conveyor Systems',
+        description: 'Simulate real-world manufacturing scenarios with robust conveyor systems. Learn how conveyor belts are used to transport materials efficiently in industrial settings.',
+        url: 'https://www.matrixtsl.com/smartfactory/',
+        icon: '🏭',
         imagePath: 'assets/IM0004.jpeg',
       ),
       Product(
-        id: 'IM6930',
-        name: 'PLC Fundamentals',
-        description: 'Hands-on training platform designed specifically for those new to industrial maintenance and automation. Features a Siemens S7-1214 PLC and 7-inch Unified Basic HMI.',
-        url: 'https://matrixtsl.github.io/IM6930/index.html',
-        icon: '🔧',
+        id: 'SF-SENSORS',
+        name: 'Sensing Systems',
+        description: 'Experience advanced sensing technology including optical, proximity, and colour sensors. Program sensors to sort coloured discs based on specific attributes, mirroring modern quality control systems.',
+        url: 'https://www.matrixtsl.com/smartfactory/',
+        icon: '📡',
         imagePath: 'assets/IM6930.jpeg',
       ),
       Product(
-        id: 'IM3214',
-        name: 'Matrix LOGO!',
-        description: 'Modular industrial control training system introducing learners to core concepts in industrial automation and programmable control. Features a Siemens LOGO! PLC.',
-        url: 'https://matrixtsl.github.io/IM3214/',
-        icon: '📡',
-        imagePath: 'assets/IM3490.jpeg', // Using available image
+        id: 'SF-PNEUMATIC',
+        name: 'Pneumatic Pick and Place',
+        description: 'Utilize pneumatic actuators and vacuum grippers to automate material handling. Understand the role of pneumatic systems in automating assembly lines and manufacturing processes.',
+        url: 'https://www.matrixtsl.com/smartfactory/',
+        icon: '🤖',
+        imagePath: 'assets/IM3490.jpeg',
+      ),
+      Product(
+        id: 'SF-MOTORS',
+        name: 'DC Motor & Stepper Motor Drivers',
+        description: 'Control and power various motors to drive conveyor belts and sorting gantries. Learn about motor control techniques crucial for precision and efficiency in industrial automation.',
+        url: 'https://www.matrixtsl.com/smartfactory/',
+        icon: '⚙️',
+        imagePath: 'assets/IM0004.jpeg',
       ),
     ];
   }

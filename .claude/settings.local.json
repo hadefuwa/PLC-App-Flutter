@@ -17,7 +17,8 @@
       "Bash(\"/c/Users/Hamed/AppData/Local/Android/Sdk/cmdline-tools/latest/bin/sdkmanager.bat\" --list)",
       "Bash(git add:*)",
       "Bash(git commit:*)",
-      "Bash(git push)"
+      "Bash(git push)",
+      "Bash(\"/c/Users/Hamed/Documents/flutter/bin/flutter.bat\" pub get)"
     ],
     "deny": [],
     "ask": []

@@ -25,7 +25,7 @@ class AboutScreen extends StatelessWidget {
                 ],
               ).createShader(bounds),
               child: const Text(
-                'About Matrix TSL',
+                'About Smart Factory',
                 style: TextStyle(
                   color: Colors.white,
                   fontWeight: FontWeight.bold,
@@ -67,7 +67,7 @@ class AboutScreen extends StatelessWidget {
                 ),
                 const SizedBox(height: 32),
                 const Text(
-                  'Matrix TSL Product Showcase',
+                  'Smart Factory',
                   style: TextStyle(
                     fontSize: 28,
                     fontWeight: FontWeight.bold,
@@ -85,35 +85,68 @@ class AboutScreen extends StatelessWidget {
                   textAlign: TextAlign.center,
                 ),
                 const SizedBox(height: 40),
-                
-                // Our Vision Section
+
+                // Overview Section
                 _buildSection(
                   context,
-                  icon: Icons.visibility_outlined,
-                  title: 'Our Vision',
-                  content: 'Inspiring the next generation of engineers through practical, hands-on learning that transforms classroom theory and prepares young people for the careers of tomorrow.',
+                  icon: Icons.factory_outlined,
+                  title: 'Overview',
+                  content: 'The Smart Factory is designed to immerse students in the cutting-edge world of manufacturing and Industry 4.0 principles.\n\nThis comprehensive system equips students with practical experience in various processes and technologies prevalent in today\'s industrial landscape.',
                   purple: purple,
                 ),
-                
+
                 const SizedBox(height: 24),
-                
-                // Who are we Section
+
+                // Conveyor Systems Section
                 _buildSection(
                   context,
-                  icon: Icons.business_outlined,
-                  title: 'Who are we?',
-                  content: 'We are a global provider of hands-on engineering education training solutions. We develop, create and manufacture innovative hardware and software designed to support the teaching of multiple engineering disciplines.\n\nOur solutions enable educators to deliver practical, industry-relevant skills with proved results, to students in schools, colleges, universities, and technical training centres worldwide.',
+                  icon: Icons.conveyor_belt,
+                  title: 'Conveyor Systems',
+                  content: 'Simulate real-world manufacturing scenarios with our robust conveyor systems.\n\nLearn how conveyor belts are used to transport materials efficiently in industrial settings.',
                   purple: purple,
                 ),
-                
+
                 const SizedBox(height: 24),
-                
-                // Our Mission Section
+
+                // Sensing Systems Section
                 _buildSection(
                   context,
-                  icon: Icons.flag_outlined,
-                  title: 'Our Mission',
-                  content: 'At Matrix TSL, our mission is to set a new standard in engineering education by delivering robust, hands-on training systems that are safe, accessible, and built to last.\n\nWe create high-quality, functional equipment that bridges the gap between theory and practice – helping learners build real skills with confidence.\n\nBacked by in-depth research, expert support, and comprehensive documentation, our systems illuminate complex concepts while offering unmatched value – more capability, for the same investment.\n\nWe empower educators to inspire the next generation of engineers and technicians through practical tools that work, last, and teach.',
+                  icon: Icons.sensors_outlined,
+                  title: 'Sensing Systems',
+                  content: 'Experience advanced sensing technology including optical, proximity, and colour sensors.\n\nProgram sensors to sort coloured discs based on specific attributes, mirroring modern quality control systems.',
+                  purple: purple,
+                ),
+
+                const SizedBox(height: 24),
+
+                // Pneumatic Pick and Place Section
+                _buildSection(
+                  context,
+                  icon: Icons.precision_manufacturing_outlined,
+                  title: 'Pneumatic Pick and Place Technology',
+                  content: 'Utilize pneumatic actuators and vacuum grippers to automate material handling.\n\nUnderstand the role of pneumatic systems in automating assembly lines and manufacturing processes.',
+                  purple: purple,
+                ),
+
+                const SizedBox(height: 24),
+
+                // Motor Control Section
+                _buildSection(
+                  context,
+                  icon: Icons.settings_input_component_outlined,
+                  title: 'Motor Control',
+                  content: 'Control and power various motors including DC Motor Drivers and Stepper Motor Drivers to drive conveyor belts and sorting gantries.\n\nLearn about motor control techniques crucial for precision and efficiency in industrial automation.',
+                  purple: purple,
+                ),
+
+                const SizedBox(height: 24),
+
+                // Skills Development Section
+                _buildSection(
+                  context,
+                  icon: Icons.school_outlined,
+                  title: 'Real World Application',
+                  content: 'The Smart Factory offers students real world application and skills development by gaining hands-on experience with technologies used in modern manufacturing.',
                   purple: purple,
                 ),
                 
@@ -128,8 +161,8 @@ class AboutScreen extends StatelessWidget {
                 _buildInfoRow(
                   context,
                   icon: Icons.web,
-                  text: 'Matrix TSL Website',
-                  onTap: () => _launchURL('https://www.matrixtsl.com/'),
+                  text: 'Smart Factory Website',
+                  onTap: () => _launchURL('https://www.matrixtsl.com/smartfactory/'),
                   purple: purple,
                 ),
                 _buildInfoRow(

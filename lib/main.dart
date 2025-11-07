@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
-import 'screens/products_list_screen.dart';
+import 'screens/smart_factory_main.dart';
+import 'screens/sf_settings_screen.dart';
 
 void main() {
   runApp(const MatrixApp());
@@ -11,7 +12,7 @@ class MatrixApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Matrix TSL',
+      title: 'Smart Factory',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(
@@ -35,7 +36,11 @@ class MatrixApp extends StatelessWidget {
         ),
       ),
       themeMode: ThemeMode.dark, // Force dark mode
-      home: const ProductsListScreen(),
+      routes: {
+        '/': (context) => const SmartFactoryMain(),
+        '/settings': (context) => const SFSettingsScreen(),
+      },
+      initialRoute: '/',
     );
   }
 }

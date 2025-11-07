@@ -121,7 +121,7 @@ class _ProductsListScreenState extends State<ProductsListScreen>
                 ],
               ).createShader(bounds),
               child: const Text(
-                'Matrix TSL Products',
+                'Smart Factory',
                 style: TextStyle(
                   color: Colors.white,
                   fontWeight: FontWeight.bold,
@@ -225,7 +225,7 @@ class _ProductsListScreenState extends State<ProductsListScreen>
                   ),
                   const SizedBox(height: 16),
                   const Text(
-                    'Matrix TSL',
+                    'Smart Factory',
                     style: TextStyle(
                       color: Colors.white,
                       fontSize: 24,
@@ -235,7 +235,7 @@ class _ProductsListScreenState extends State<ProductsListScreen>
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    'Product Showcase',
+                    'Industry 4.0 Education',
                     style: TextStyle(
                       color: Colors.white.withValues(alpha: 0.8),
                       fontSize: 14,
@@ -252,8 +252,8 @@ class _ProductsListScreenState extends State<ProductsListScreen>
                 children: [
                   _buildDrawerItem(
                     context,
-                    icon: Icons.home_outlined,
-                    title: 'Products',
+                    icon: Icons.factory_outlined,
+                    title: 'Smart Factory',
                     onTap: () {
                       Navigator.pop(context);
                     },

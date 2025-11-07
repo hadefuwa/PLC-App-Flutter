@@ -1,5 +1,5 @@
 name: matrix_app
-description: Matrix TSL Product Showcase App
+description: Matrix TSL Smart Factory Education App
 publish_to: 'none'
 version: 1.0.5+1
 
@@ -17,6 +17,7 @@ dependencies:
   flutter_svg: ^2.0.9
   video_player: ^2.8.2
   chewie: ^1.7.4
+  path_provider: ^2.1.1
 
 dev_dependencies:
   flutter_test:
