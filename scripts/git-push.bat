@@ -28,15 +28,12 @@ if "%COMMIT_MSG%"=="" (
     echo Using default commit message: %COMMIT_MSG%
 )
 
-REM Stage all changes
+REM Stage all changes (APK files are ignored via .gitignore)
 echo.
 echo Staging all changes...
 git add -A
-REM Force add APK files to ensure they're included
-if exist releases\*.apk (
-    git add releases\*.apk
-    echo Added APK files from releases folder
-)
+echo.
+echo ℹ️  Note: APK files are ignored. Upload them to GitHub Releases instead.
 
 REM Commit
 echo Committing changes...

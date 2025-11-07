@@ -79,11 +79,7 @@ if ($LASTEXITCODE -eq 0) {
         Write-Host ""
         Write-Host "✅ APK copied to releases folder!" -ForegroundColor Green
         Write-Host ""
-        
-        # Add APK to git staging
-        Write-Host "Adding APK to git staging..." -ForegroundColor Cyan
-        git add $releasesPath
-        Write-Host "✅ APK added to git staging!" -ForegroundColor Green
+        Write-Host "ℹ️  Note: APK files are not tracked by git. Upload to GitHub Releases instead." -ForegroundColor Yellow
         Write-Host ""
 
         # Also copy to build folder with new name
@@ -97,9 +93,10 @@ if ($LASTEXITCODE -eq 0) {
         Write-Host "  Releases folder: $releasesPath" -ForegroundColor Cyan
         Write-Host ""
         Write-Host "Next steps:" -ForegroundColor Yellow
-        Write-Host "  1. Transfer the APK to your phone (email, USB, cloud storage)" -ForegroundColor White
-        Write-Host "  2. Enable 'Unknown sources' in phone settings" -ForegroundColor White
-        Write-Host "  3. Open the APK file on your phone and install" -ForegroundColor White
+        Write-Host "  1. Upload APK to GitHub Releases (see GITHUB_RELEASES.md)" -ForegroundColor White
+        Write-Host "  2. Transfer the APK to your phone (email, USB, cloud storage)" -ForegroundColor White
+        Write-Host "  3. Enable 'Unknown sources' in phone settings" -ForegroundColor White
+        Write-Host "  4. Open the APK file on your phone and install" -ForegroundColor White
         Write-Host ""
 
         # Open the releases folder

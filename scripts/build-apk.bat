@@ -77,11 +77,7 @@ if %ERRORLEVEL% EQU 0 (
         echo.
         echo ✅ APK copied to releases folder!
         echo.
-        
-        REM Add APK to git staging
-        echo Adding APK to git staging...
-        git add "%RELEASES_PATH%"
-        echo ✅ APK added to git staging!
+        echo ℹ️  Note: APK files are not tracked by git. Upload to GitHub Releases instead.
         echo.
 
         REM Also rename in build folder
@@ -95,9 +91,10 @@ if %ERRORLEVEL% EQU 0 (
         echo   Releases folder: %RELEASES_PATH%
         echo.
         echo Next steps:
-        echo   1. Transfer the APK to your phone (email, USB, cloud storage)
-        echo   2. Enable 'Unknown sources' in phone settings
-        echo   3. Open the APK file on your phone and install
+        echo   1. Upload APK to GitHub Releases (see GITHUB_RELEASES.md)
+        echo   2. Transfer the APK to your phone (email, USB, cloud storage)
+        echo   3. Enable 'Unknown sources' in phone settings
+        echo   4. Open the APK file on your phone and install
         echo.
         echo Opening releases folder...
         start explorer.exe "releases"
