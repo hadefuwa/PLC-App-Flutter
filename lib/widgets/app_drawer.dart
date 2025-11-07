@@ -99,6 +99,34 @@ class AppDrawer extends StatelessWidget {
                       );
                     },
                   ),
+                  _buildDrawerItem(
+                    context,
+                    icon: Icons.warning,
+                    title: 'Alarms',
+                    onTap: () {
+                      Navigator.pop(context);
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => const SFAlarmsScreen(),
+                        ),
+                      );
+                    },
+                  ),
+                  _buildDrawerItem(
+                    context,
+                    icon: Icons.event_note,
+                    title: 'Event Log',
+                    onTap: () {
+                      Navigator.pop(context);
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => const SFEventLogScreen(),
+                        ),
+                      );
+                    },
+                  ),
                   const Divider(
                     color: Color(0xFF1A1A2E),
                     height: 16,
@@ -212,34 +240,6 @@ class AppDrawer extends StatelessWidget {
                         context,
                         MaterialPageRoute(
                           builder: (context) => const DataStreamLogScreen(),
-                        ),
-                      );
-                    },
-                  ),
-                  _buildDrawerItem(
-                    context,
-                    icon: Icons.event_note,
-                    title: 'Event Log',
-                    onTap: () {
-                      Navigator.pop(context);
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => const SFEventLogScreen(),
-                        ),
-                      );
-                    },
-                  ),
-                  _buildDrawerItem(
-                    context,
-                    icon: Icons.warning,
-                    title: 'Alarms',
-                    onTap: () {
-                      Navigator.pop(context);
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => const SFAlarmsScreen(),
                         ),
                       );
                     },
