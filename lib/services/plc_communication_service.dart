@@ -146,12 +146,16 @@ class PLCCommunicationService {
           await _socket!.flush();
 
           _logDataStream('TX', 'COTP', 'CONNECTION_REQUEST', 'Sent COTP connection request (attempt ${attempt + 1}/$_maxRetries)');
+          _logDataStream('TX', 'DEBUG', 'HEX_DUMP', 'Sent: ${_hexDump(cotpConnectionRequest)}');
 
           // Wait for COTP Connection Confirm
-          final cotpResponse = await _socket!.first.timeout(
-            const Duration(seconds: 5),
-            onTimeout: () => throw TimeoutException('COTP response timeout'),
-          );
+          // Read response with proper buffering
+          final cotpResponse = await _readResponse(timeout: const Duration(seconds: 5));
+          if (cotpResponse == null) {
+            throw TimeoutException('COTP response timeout');
+          }
+          
+          _logDataStream('RX', 'COTP', 'RESPONSE', 'Received ${cotpResponse.length} bytes: ${_hexDump(cotpResponse)}');
 
           if (!_parseCOTPConnectionConfirm(cotpResponse)) {
             _lastError = 'Invalid COTP connection confirm';
@@ -172,33 +176,23 @@ class PLCCommunicationService {
           await _socket!.flush();
 
           _logDataStream('TX', 'S7', 'SETUP_COMMUNICATION', 'Sent S7 communication setup');
+          _logDataStream('TX', 'DEBUG', 'HEX_DUMP', 'Sent: ${_hexDump(s7SetupRequest)}');
 
           // Wait for S7 Setup response
-          final s7Response = await _socket!.first.timeout(
-            const Duration(seconds: 5),
-            onTimeout: () => throw TimeoutException('S7 setup response timeout'),
-          );
+          final s7Response = await _readResponse(timeout: const Duration(seconds: 5));
+          if (s7Response == null) {
+            throw TimeoutException('S7 setup response timeout');
+          }
+          
+          _logDataStream('RX', 'S7', 'RESPONSE', 'Received ${s7Response.length} bytes: ${_hexDump(s7Response)}');
 
           if (_parseS7SetupResponse(s7Response)) {
             _isConnected = true;
             _lastError = '';
             _logDataStream('RX', 'CONNECTION', 'CONNECTED', 'Successfully connected to S7-1200');
 
-            // Set up data listener
-            _socket!.listen(
-              (data) {
-                _handleReceivedData(data);
-              },
-              onError: (error) {
-                _lastError = 'Socket error: $error';
-                _logDataStream('RX', 'ERROR', 'SOCKET_ERROR', error.toString());
-                _isConnected = false;
-              },
-              onDone: () {
-                _logDataStream('RX', 'CONNECTION', 'DISCONNECTED', 'PLC connection closed');
-                _isConnected = false;
-              },
-            );
+            // Note: Permanent listener will be set up by _startPeriodicStatusCheck if needed
+            // For now, connection is established and we can proceed with reads/writes
 
             // Start periodic status check
             _startPeriodicStatusCheck();
@@ -236,13 +230,6 @@ class PLCCommunicationService {
 
   // Build COTP Connection Request (Phase 1)
   Uint8List _buildCOTPConnectionRequest() {
-    // ISO TPKT Header (4 bytes)
-    final tpkt = Uint8List(4);
-    tpkt[0] = 0x03; // Version
-    tpkt[1] = 0x00; // Reserved
-    tpkt[2] = 0x00; // Length high byte
-    tpkt[3] = 0x16; // Length low byte (22 bytes total)
-
     // ISO COTP Connection Request (18 bytes)
     final cotp = Uint8List(18);
     cotp[0] = 0x11; // Length indicator (17 bytes following)
@@ -270,31 +257,51 @@ class PLCCommunicationService {
     cotp[16] = 0x01; // Rack/Slot calculation: (1 * 2) + (rack * 0x20) + slot
     cotp[17] = (_rack * 0x20) + _slot; // Rack and Slot encoded
 
+    // ISO TPKT Header (4 bytes) - length = 4 (TPKT) + 18 (COTP) = 22 bytes
+    final totalLength = 4 + cotp.length;
+    final tpkt = Uint8List(4);
+    tpkt[0] = 0x03; // Version
+    tpkt[1] = 0x00; // Reserved
+    tpkt[2] = (totalLength >> 8) & 0xFF; // Length high byte
+    tpkt[3] = totalLength & 0xFF; // Length low byte
+
     return Uint8List.fromList([...tpkt, ...cotp]);
   }
 
   // Parse COTP Connection Confirm (Phase 1 Response)
   bool _parseCOTPConnectionConfirm(List<int> data) {
-    if (data.length < 11) return false;
+    if (data.length < 11) {
+      _logDataStream('RX', 'ERROR', 'COTP_PARSE', 'Response too short: ${data.length} bytes');
+      _logDataStream('RX', 'DEBUG', 'HEX_DUMP', _hexDump(data));
+      return false;
+    }
 
     // Check TPKT header
-    if (data[0] != 0x03 || data[1] != 0x00) return false;
+    if (data[0] != 0x03 || data[1] != 0x00) {
+      _logDataStream('RX', 'ERROR', 'COTP_PARSE', 'Invalid TPKT header: ${data[0].toRadixString(16)} ${data[1].toRadixString(16)}');
+      return false;
+    }
+
+    // Get TPKT length
+    final tpktLength = (data[2] << 8) | data[3];
+    if (data.length < tpktLength) {
+      _logDataStream('RX', 'ERROR', 'COTP_PARSE', 'Packet incomplete: got ${data.length}, expected $tpktLength');
+      return false;
+    }
 
     // Check COTP header - 0xD0 is Connection Confirm (CC)
-    if (data[5] != 0xD0) return false;
+    // COTP starts at offset 4 (after TPKT header)
+    if (data.length < 6 || data[4] != 0x11 || data[5] != 0xD0) {
+      _logDataStream('RX', 'ERROR', 'COTP_PARSE', 'Invalid COTP header: ${data.length >= 6 ? "${data[4].toRadixString(16)} ${data[5].toRadixString(16)}" : "too short"}');
+      _logDataStream('RX', 'DEBUG', 'HEX_DUMP', _hexDump(data));
+      return false;
+    }
 
     return true;
   }
 
   // Build S7 Communication Setup (Phase 2)
   Uint8List _buildS7SetupCommunication() {
-    // ISO TPKT Header (4 bytes)
-    final tpkt = Uint8List(4);
-    tpkt[0] = 0x03; // Version
-    tpkt[1] = 0x00; // Reserved
-    tpkt[2] = 0x00; // Length high byte
-    tpkt[3] = 0x19; // Length low byte (25 bytes total)
-
     // ISO COTP Data Header (3 bytes)
     final cotp = Uint8List(3);
     cotp[0] = 0x02; // Length indicator
@@ -324,24 +331,129 @@ class PLCCommunicationService {
     s7Setup[16] = 0x03; // PDU length high (960 bytes = 0x03C0)
     s7Setup[17] = 0xC0; // PDU length low
 
+    // ISO TPKT Header (4 bytes) - length = 4 (TPKT) + 3 (COTP) + 18 (S7) = 25 bytes
+    final totalLength = 4 + cotp.length + s7Setup.length;
+    final tpkt = Uint8List(4);
+    tpkt[0] = 0x03; // Version
+    tpkt[1] = 0x00; // Reserved
+    tpkt[2] = (totalLength >> 8) & 0xFF; // Length high byte
+    tpkt[3] = totalLength & 0xFF; // Length low byte
+
     return Uint8List.fromList([...tpkt, ...cotp, ...s7Setup]);
   }
 
   // Parse S7 Communication Setup Response (Phase 2 Response)
   bool _parseS7SetupResponse(List<int> data) {
-    if (data.length < 20) return false;
+    if (data.length < 20) {
+      _logDataStream('RX', 'ERROR', 'S7_PARSE', 'Response too short: ${data.length} bytes');
+      _logDataStream('RX', 'DEBUG', 'HEX_DUMP', _hexDump(data));
+      return false;
+    }
 
     // Check TPKT header
-    if (data[0] != 0x03 || data[1] != 0x00) return false;
+    if (data[0] != 0x03 || data[1] != 0x00) {
+      _logDataStream('RX', 'ERROR', 'S7_PARSE', 'Invalid TPKT header');
+      return false;
+    }
 
-    // Check COTP Data header
-    if (data[5] != 0xF0) return false;
+    // Get TPKT length
+    final tpktLength = (data[2] << 8) | data[3];
+    if (data.length < tpktLength) {
+      _logDataStream('RX', 'ERROR', 'S7_PARSE', 'Packet incomplete: got ${data.length}, expected $tpktLength');
+      return false;
+    }
 
-    // Check S7 header
-    if (data[7] != 0x32) return false; // Protocol ID
-    if (data[8] != 0x03) return false; // ROSCTR: Ack_Data (response)
+    // COTP Data header starts at offset 4
+    if (data.length < 7 || data[4] != 0x02 || data[5] != 0xF0) {
+      _logDataStream('RX', 'ERROR', 'S7_PARSE', 'Invalid COTP Data header');
+      _logDataStream('RX', 'DEBUG', 'HEX_DUMP', _hexDump(data));
+      return false;
+    }
+
+    // S7 header starts at offset 7 (after TPKT 4 bytes + COTP 3 bytes)
+    if (data.length < 10 || data[7] != 0x32) {
+      _logDataStream('RX', 'ERROR', 'S7_PARSE', 'Invalid S7 Protocol ID: ${data.length >= 8 ? data[7].toRadixString(16) : "too short"}');
+      _logDataStream('RX', 'DEBUG', 'HEX_DUMP', _hexDump(data));
+      return false;
+    }
+
+    // Check ROSCTR: 0x03 = Ack_Data (response)
+    if (data[8] != 0x03) {
+      _logDataStream('RX', 'ERROR', 'S7_PARSE', 'Invalid ROSCTR: expected 0x03 (Ack_Data), got 0x${data[8].toRadixString(16)}');
+      _logDataStream('RX', 'DEBUG', 'HEX_DUMP', _hexDump(data));
+      return false;
+    }
+
+    // Check error code (offset 17 in S7 header = offset 24 total)
+    if (data.length >= 25 && data[24] != 0x00) {
+      _logDataStream('RX', 'ERROR', 'S7_ERROR', 'S7 error code: 0x${data[24].toRadixString(16)}');
+      return false;
+    }
 
     return true;
+  }
+  
+  // Helper to create hex dump for debugging
+  String _hexDump(List<int> data, {int maxBytes = 64}) {
+    final bytes = data.length > maxBytes ? data.sublist(0, maxBytes) : data;
+    final hex = bytes.map((b) => b.toRadixString(16).padLeft(2, '0').toUpperCase()).join(' ');
+    return data.length > maxBytes ? '$hex... (${data.length} total)' : hex;
+  }
+  
+  // Read complete response from socket (handles TPKT length)
+  Future<List<int>?> _readResponse({required Duration timeout}) async {
+    if (_socket == null) return null;
+    
+    try {
+      final completer = Completer<List<int>?>();
+      final buffer = <int>[];
+      StreamSubscription? subscription;
+      Timer? timeoutTimer;
+      
+      subscription = _socket!.listen(
+        (data) {
+          buffer.addAll(data);
+          
+          // Check if we have at least TPKT header (4 bytes)
+          if (buffer.length >= 4) {
+            // Get TPKT length
+            final tpktLength = (buffer[2] << 8) | buffer[3];
+            
+            // If we have the complete packet, complete
+            if (buffer.length >= tpktLength) {
+              timeoutTimer?.cancel();
+              subscription?.cancel();
+              completer.complete(buffer.sublist(0, tpktLength));
+            }
+          }
+        },
+        onError: (error) {
+          timeoutTimer?.cancel();
+          subscription?.cancel();
+          completer.completeError(error);
+        },
+        onDone: () {
+          timeoutTimer?.cancel();
+          subscription?.cancel();
+          if (!completer.isCompleted) {
+            completer.complete(buffer.isEmpty ? null : buffer);
+          }
+        },
+        cancelOnError: false,
+      );
+      
+      timeoutTimer = Timer(timeout, () {
+        subscription?.cancel();
+        if (!completer.isCompleted) {
+          completer.complete(null);
+        }
+      });
+      
+      return await completer.future;
+    } catch (e) {
+      _logDataStream('RX', 'ERROR', 'READ_RESPONSE', 'Error reading response: $e');
+      return null;
+    }
   }
 
   // Disconnect from PLC
