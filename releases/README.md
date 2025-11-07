@@ -2,16 +2,17 @@
 
 This folder contains the APK files for direct download and installation on Android devices.
 
-## Latest Release: v1.0.4
+## Latest Release: v1.0.5
 
-**Download:** [MatrixTSL-v1.0.4.apk](MatrixTSL-v1.0.4.apk)
+**Download:** [MatrixTSL-v1.0.5.apk](MatrixTSL-v1.0.5.apk)
 
-### What's New in v1.0.4:
-- ✅ Updated app bar layout: logo on top, title text below
-- ✅ Fixed video player asset path issue
-- ✅ Improved UI consistency across all screens
+### What's New in v1.0.5:
+- ✅ Fixed video player - switched to WebView-based player to resolve PlatformException
+- ✅ Improved video loading with better error handling
+- ✅ Video now plays reliably from assets
 
 ### Previous Releases:
+- [v1.0.4](MatrixTSL-v1.0.4.apk) - Updated app bar layout, fixed video asset path
 - [v1.0.3](MatrixTSL-v1.0.3.apk) - Added PLC Simulator, Maintenance Game, local video player
 - [v1.0.2](MatrixTSL-v1.0.2.apk) - Added contact page with business hours, logo integration
 - [v1.0.1](MatrixTSL-v1.0.1.apk) - Added 3D model viewer, webshop, video page

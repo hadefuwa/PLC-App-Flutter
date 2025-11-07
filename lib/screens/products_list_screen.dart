@@ -392,7 +392,7 @@ class _ProductsListScreenState extends State<ProductsListScreen>
             Padding(
               padding: const EdgeInsets.all(16),
               child:                   Text(
-                    'Version 1.0.4',
+                    'Version 1.0.5',
                     style: TextStyle(
                       color: Colors.white.withValues(alpha: 0.5),
                       fontSize: 12,
