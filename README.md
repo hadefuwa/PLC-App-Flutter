@@ -51,10 +51,10 @@ We've migrated from `dart_snap7` (native libraries) to **Moka7** (pure Java), el
 - **Platform**: Android only
 
 ### 📚 Worksheets
-- 17 comprehensive learning activities
+- 18 comprehensive learning activities
 - Progress tracking
 - Step-by-step guided instructions
-- Topics: Data logging, sensors, sorting, safety, analytics, and more
+- Topics: Sensors, reject mechanisms, conveyor control, sorting, stepper motors, plunger operation, robot arm, commissioning, defects & reset, vision systems, RFID, networking, data logging, analytics, IO-Link, and predictive maintenance
 
 ### 📊 Analytics
 - Real-time KPI tiles (Throughput, FPY, Rejects)
