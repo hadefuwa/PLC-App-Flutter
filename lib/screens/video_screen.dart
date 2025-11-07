@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:webview_flutter/webview_flutter.dart';
-import 'dart:convert';
-import 'package:flutter/services.dart';
+import 'package:youtube_player_iframe/youtube_player_iframe.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../widgets/logo_widget.dart';
 
 class VideoScreen extends StatefulWidget {
@@ -12,164 +11,52 @@ class VideoScreen extends StatefulWidget {
 }
 
 class _VideoScreenState extends State<VideoScreen> {
-  late final WebViewController _controller;
+  late YoutubePlayerController _controller;
   bool _isLoading = true;
   String? _errorMessage;
-  String? _videoBase64;
 
   @override
   void initState() {
     super.initState();
-    _loadVideoAsset();
+    _initializeYouTubePlayer();
   }
 
-  Future<void> _loadVideoAsset() async {
+  void _initializeYouTubePlayer() {
     try {
-      setState(() {
-        _isLoading = true;
-        _errorMessage = null;
-      });
-
-      // Load video file as bytes
-      final ByteData data = await rootBundle.load(
-        'assets/Industrial Maintenance - IM0004 Maintenance of closed loop systems Overview.mp4',
+      // YouTube video ID from URL: https://www.youtube.com/watch?v=f2x4cGuTgnM
+      _controller = YoutubePlayerController.fromVideoId(
+        videoId: 'f2x4cGuTgnM',
+        autoPlay: false,
+        params: const YoutubePlayerParams(
+          showControls: true,
+          showFullscreenButton: true,
+          enableCaption: true,
+          loop: false,
+          mute: false,
+          playsInline: true,
+        ),
       );
-      final Uint8List bytes = data.buffer.asUint8List();
-      
-      // Convert to base64 for embedding in HTML
-      final String base64Video = base64Encode(bytes);
-      final String videoDataUri = 'data:video/mp4;base64,$base64Video';
 
-      setState(() {
-        _videoBase64 = videoDataUri;
+      // Set loading to false after a short delay to allow player to initialize
+      Future.delayed(const Duration(seconds: 2), () {
+        if (mounted) {
+          setState(() {
+            _isLoading = false;
+          });
+        }
       });
-
-      _initializeWebView();
     } catch (e) {
       setState(() {
         _isLoading = false;
-        _errorMessage = 'Failed to load video file: $e\n\nPlease ensure the video file exists in the assets folder.';
+        _errorMessage = 'Error initializing video player: $e';
       });
     }
   }
 
-  void _initializeWebView() {
-    if (_videoBase64 == null) return;
-
-    final htmlContent = '''
-<!DOCTYPE html>
-<html>
-<head>
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-        body {
-            margin: 0;
-            padding: 0;
-            background: linear-gradient(135deg, #0A0A0F 0%, #1A1A2E 100%);
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            min-height: 100vh;
-            overflow: hidden;
-        }
-        .video-container {
-            width: 100%;
-            height: 100vh;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-        }
-        video {
-            width: 100%;
-            height: auto;
-            max-height: 100vh;
-            outline: none;
-        }
-        .loading {
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            color: #E0B0FF;
-            font-size: 18px;
-            text-align: center;
-            z-index: 10;
-        }
-        .loading::after {
-            content: '';
-            display: block;
-            width: 40px;
-            height: 40px;
-            margin: 20px auto;
-            border: 3px solid #9C27B0;
-            border-top-color: transparent;
-            border-radius: 50%;
-            animation: spin 1s linear infinite;
-        }
-        @keyframes spin {
-            to { transform: rotate(360deg); }
-        }
-    </style>
-</head>
-<body>
-    <div class="video-container">
-        <div class="loading">Loading video...</div>
-        <video id="video-player" controls autoplay>
-            <source src="$_videoBase64" type="video/mp4">
-            Your browser does not support the video tag.
-        </video>
-    </div>
-    <script>
-        const video = document.getElementById('video-player');
-        const loading = document.querySelector('.loading');
-        
-        video.addEventListener('loadeddata', () => {
-            if (loading) loading.style.display = 'none';
-        });
-        
-        video.addEventListener('error', (e) => {
-            if (loading) loading.style.display = 'none';
-            const errorDiv = document.createElement('div');
-            errorDiv.style.cssText = 'position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); color: #ff6b6b; text-align: center; padding: 20px; background: rgba(26, 26, 46, 0.9); border-radius: 12px;';
-            errorDiv.innerHTML = '<h3>Error Loading Video</h3><p>Failed to load video file.</p>';
-            document.body.appendChild(errorDiv);
-        });
-    </script>
-</body>
-</html>
-''';
-
-    _controller = WebViewController()
-      ..setJavaScriptMode(JavaScriptMode.unrestricted)
-      ..setNavigationDelegate(
-        NavigationDelegate(
-          onPageStarted: (String url) {
-            setState(() {
-              _isLoading = true;
-              _errorMessage = null;
-            });
-          },
-          onPageFinished: (String url) {
-            setState(() {
-              _isLoading = false;
-            });
-          },
-          onWebResourceError: (WebResourceError error) {
-            setState(() {
-              _isLoading = false;
-              _errorMessage = error.description.isNotEmpty
-                  ? error.description
-                  : 'Failed to load video';
-            });
-          },
-        ),
-      )
-      ..loadHtmlString(htmlContent);
+  @override
+  void dispose() {
+    _controller.close();
+    super.dispose();
   }
 
   @override
@@ -224,7 +111,46 @@ class _VideoScreenState extends State<VideoScreen> {
               ? _buildErrorWidget(context)
               : (_isLoading
                   ? _buildLoadingWidget(context, purple)
-                  : WebViewWidget(controller: _controller)),
+                  : _buildVideoPlayer(context)),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildVideoPlayer(BuildContext context) {
+    return Center(
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Expanded(
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(12),
+                child: YoutubePlayer(
+                  controller: _controller,
+                  aspectRatio: 16 / 9,
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'Smart Factory Training Video',
+              style: TextStyle(
+                color: Colors.white.withValues(alpha: 0.9),
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Tap the video to play',
+              style: TextStyle(
+                color: Colors.white.withValues(alpha: 0.6),
+                fontSize: 14,
+              ),
+            ),
+          ],
         ),
       ),
     );
@@ -278,10 +204,30 @@ class _VideoScreenState extends State<VideoScreen> {
             const SizedBox(height: 24),
             FilledButton.icon(
               onPressed: () {
-                _loadVideoAsset();
+                setState(() {
+                  _isLoading = true;
+                  _errorMessage = null;
+                });
+                _initializeYouTubePlayer();
               },
               icon: const Icon(Icons.refresh),
               label: const Text('Retry'),
+            ),
+            const SizedBox(height: 16),
+            OutlinedButton.icon(
+              onPressed: () async {
+                // Open YouTube in external browser
+                final url = Uri.parse('https://www.youtube.com/watch?v=f2x4cGuTgnM');
+                try {
+                  if (await canLaunchUrl(url)) {
+                    await launchUrl(url, mode: LaunchMode.externalApplication);
+                  }
+                } catch (e) {
+                  // Handle error silently
+                }
+              },
+              icon: const Icon(Icons.open_in_new),
+              label: const Text('Open in YouTube'),
             ),
           ],
         ),

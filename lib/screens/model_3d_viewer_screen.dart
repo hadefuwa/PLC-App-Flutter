@@ -13,9 +13,10 @@ class _Model3DViewerScreenState extends State<Model3DViewerScreen> {
   late final WebViewController _controller;
   bool _isLoading = true;
   String? _errorMessage;
-  String _selectedModel = 'IM0004.glb';
+  String _selectedModel = '3d model.glb';
   
   final Map<String, String> _models = {
+    '3d model.glb': 'Smart Factory',
     'IM0004.glb': 'Maintenance of Closed Loop Systems',
     'IM6930.glb': 'PLC Fundamentals',
   };
@@ -37,8 +38,9 @@ class _Model3DViewerScreenState extends State<Model3DViewerScreen> {
     });
 
     // Try to load from GitHub raw URL first, fallback to local asset path
-    // Replace with your actual GitHub username and repo
-    final githubRawUrl = 'https://raw.githubusercontent.com/hadefuwa/matrix-android-app/main/assets/$modelName';
+    // URL encode the model name to handle spaces and special characters
+    final encodedModelName = Uri.encodeComponent(modelName);
+    final githubRawUrl = 'https://raw.githubusercontent.com/hadefuwa/smart-factory-app/main/assets/$encodedModelName';
     
     // Alternative: If hosting elsewhere, use that URL instead
     // final modelUrl = 'https://your-server.com/assets/$modelName';
