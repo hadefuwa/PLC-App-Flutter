@@ -1,52 +1,52 @@
-# Matrix TSL App Releases
+# Smart Factory App Releases
 
-This folder contains the APK files for direct download and installation on Android devices.
+## Version 1.0.5 (2025-11-07)
 
-## Latest Release: v1.0.5
+**Download:** [smart-factory-v1.0.5.apk](smart-factory-v1.0.5.apk)
 
-**Download:** [MatrixTSL-v1.0.5.apk](MatrixTSL-v1.0.5.apk)
+### What's New
+- Complete Smart Factory Control App implementation
+- 5 main screens with bottom navigation (Home, Run, I/O, Worksheets, Analytics)
+- Full simulation engine with 10Hz update rate
+- 17 comprehensive learning worksheets
+- Real-time metrics and CSV data export
+- Safety interlocks and fault injection
+- Material sorting simulation (Steel, Aluminium, Plastic)
 
-### What's New in v1.0.5:
-- ✅ Fixed video player - switched to WebView-based player to resolve PlatformException
-- ✅ Improved video loading with better error handling
-- ✅ Video now plays reliably from assets
+### Features
+- **Simulation Mode**: Runs entirely offline without hardware
+- **Live Metrics**: FPY, Throughput, Uptime tracking
+- **Interactive Controls**: Start/Stop, Manual jog, Output control
+- **Educational Content**: Guided learning activities
+- **Data Export**: CSV files for analysis
+- **Safety Features**: Comprehensive interlocks
 
-### Previous Releases:
-- [v1.0.4](MatrixTSL-v1.0.4.apk) - Updated app bar layout, fixed video asset path
-- [v1.0.3](MatrixTSL-v1.0.3.apk) - Added PLC Simulator, Maintenance Game, local video player
-- [v1.0.2](MatrixTSL-v1.0.2.apk) - Added contact page with business hours, logo integration
-- [v1.0.1](MatrixTSL-v1.0.1.apk) - Added 3D model viewer, webshop, video page
-- [v1.0.0](MatrixTSL-v1.0.0.apk) - Initial release with product showcase
+### Installation
+1. Download the APK file
+2. Enable "Install from Unknown Sources" on your Android device
+3. Install the APK
+4. Launch Smart Factory app
 
-## Installation Instructions
+### Requirements
+- Android 5.0 (API 21) or higher
+- ~60 MB storage space
 
-1. **Download the APK** - Click on the latest release link above or download directly from GitHub
-2. **Transfer to your phone** - Use email, USB cable, or cloud storage (Google Drive, Dropbox, etc.)
-3. **Enable Unknown Sources**:
-   - Go to Settings → Security (or Settings → Apps → Special Access)
-   - Enable "Install unknown apps" or "Unknown sources"
-   - Select the app you'll use to install (Chrome, Files, etc.)
-4. **Install** - Open the downloaded APK file on your phone and tap "Install"
-5. **Launch** - Find "Matrix TSL" in your app drawer and open it
-
-## System Requirements
-
-- Android 5.0 (API level 21) or higher
-- Internet connection (for web content)
-- Approximately 60MB of storage space
-
-## Troubleshooting
-
-- **Installation blocked**: Make sure "Unknown sources" is enabled in your phone settings
-- **App won't open**: Check that you have internet connection for web-based features
-- **Video not playing**: Ensure the video file is included in the app assets
-
-## Support
-
-For issues or questions, please contact:
-- Email: sales@matrixtsl.com
-- Website: https://www.matrixtsl.com/
+### File Info
+- **File**: smart-factory-v1.0.5.apk
+- **Size**: 51.3 MB
+- **Build Type**: Release
+- **Minimum SDK**: 21 (Android 5.0)
 
 ---
 
-**Note**: This app is designed for educational and demonstration purposes. Some features require an internet connection.
+## Previous Versions
+
+### Version 1.0.4
+- Updated app bar layout
+- Fixed video player
+- Logo improvements
+
+### Version 1.0.3
+- Initial Matrix TSL product showcase
+- WebView integration
+- 3D model viewer
