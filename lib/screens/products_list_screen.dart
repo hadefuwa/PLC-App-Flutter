@@ -8,7 +8,7 @@ import 'settings_screen.dart';
 import 'webshop_screen.dart';
 import 'video_screen.dart';
 import 'factory_game_screen.dart';
-import 'easm_viewer_screen.dart';
+import 'model_3d_viewer_screen.dart';
 
 class ProductsListScreen extends StatefulWidget {
   const ProductsListScreen({super.key});
@@ -302,7 +302,7 @@ class _ProductsListScreenState extends State<ProductsListScreen>
                       Navigator.push(
                         context,
                         MaterialPageRoute(
-                          builder: (context) => const EASMViewerScreen(),
+                          builder: (context) => const Model3DViewerScreen(),
                         ),
                       );
                     },
