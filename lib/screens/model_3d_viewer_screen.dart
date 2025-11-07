@@ -265,11 +265,11 @@ class _Model3DViewerScreenState extends State<Model3DViewerScreen> {
     
     return Scaffold(
       appBar: AppBar(
-        title: Row(
+        title: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             const LogoWidget(width: 28, height: 28),
-            const SizedBox(width: 10),
+            const SizedBox(height: 4),
             ShaderMask(
               shaderCallback: (bounds) => LinearGradient(
                 colors: [
@@ -283,11 +283,13 @@ class _Model3DViewerScreenState extends State<Model3DViewerScreen> {
                 style: const TextStyle(
                   color: Colors.white,
                   fontWeight: FontWeight.bold,
+                  fontSize: 14,
                 ),
               ),
             ),
           ],
         ),
+        centerTitle: true,
         backgroundColor: const Color(0xFF0F0F1E),
         foregroundColor: const Color(0xFFE0B0FF),
         actions: [
@@ -301,8 +303,8 @@ class _Model3DViewerScreenState extends State<Model3DViewerScreen> {
                 child: Row(
                   children: [
                     Icon(
-                      _selectedModel == entry.key 
-                          ? Icons.radio_button_checked 
+                      _selectedModel == entry.key
+                          ? Icons.radio_button_checked
                           : Icons.radio_button_unchecked,
                       color: purple,
                     ),
@@ -314,8 +316,8 @@ class _Model3DViewerScreenState extends State<Model3DViewerScreen> {
                           Text(
                             entry.value,
                             style: TextStyle(
-                              fontWeight: _selectedModel == entry.key 
-                                  ? FontWeight.bold 
+                              fontWeight: _selectedModel == entry.key
+                                  ? FontWeight.bold
                                   : FontWeight.normal,
                             ),
                           ),

@@ -25,8 +25,9 @@ class _VideoScreenState extends State<VideoScreen> {
   Future<void> _initializeVideoPlayer() async {
     try {
       // Load video from assets
+      // VideoPlayerController.asset() requires path WITHOUT 'assets/' prefix
       _videoPlayerController = VideoPlayerController.asset(
-        'assets/Industrial Maintenance - IM0004 Maintenance of closed loop systems Overview.mp4',
+        'Industrial Maintenance - IM0004 Maintenance of closed loop systems Overview.mp4',
       );
 
       await _videoPlayerController.initialize();
@@ -90,11 +91,11 @@ class _VideoScreenState extends State<VideoScreen> {
     
     return Scaffold(
       appBar: AppBar(
-        title: Row(
+        title: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             const LogoWidget(width: 28, height: 28),
-            const SizedBox(width: 10),
+            const SizedBox(height: 4),
             ShaderMask(
               shaderCallback: (bounds) => LinearGradient(
                 colors: [
@@ -108,11 +109,13 @@ class _VideoScreenState extends State<VideoScreen> {
                 style: TextStyle(
                   color: Colors.white,
                   fontWeight: FontWeight.bold,
+                  fontSize: 14,
                 ),
               ),
             ),
           ],
         ),
+        centerTitle: true,
         backgroundColor: const Color(0xFF0F0F1E),
         foregroundColor: const Color(0xFFE0B0FF),
       ),

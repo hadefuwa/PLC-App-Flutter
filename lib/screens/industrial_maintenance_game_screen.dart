@@ -199,11 +199,11 @@ class _IndustrialMaintenanceGameScreenState extends State<IndustrialMaintenanceG
 
     return Scaffold(
       appBar: AppBar(
-        title: Row(
+        title: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             const LogoWidget(width: 28, height: 28),
-            const SizedBox(width: 10),
+            const SizedBox(height: 4),
             ShaderMask(
               shaderCallback: (bounds) => LinearGradient(
                 colors: [
@@ -217,11 +217,13 @@ class _IndustrialMaintenanceGameScreenState extends State<IndustrialMaintenanceG
                 style: TextStyle(
                   color: Colors.white,
                   fontWeight: FontWeight.bold,
+                  fontSize: 14,
                 ),
               ),
             ),
           ],
         ),
+        centerTitle: true,
         backgroundColor: const Color(0xFF0F0F1E),
         foregroundColor: const Color(0xFFE0B0FF),
         actions: [

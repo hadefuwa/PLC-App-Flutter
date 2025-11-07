@@ -61,51 +61,45 @@ class _ProductWebViewScreenState extends State<ProductWebViewScreen> {
     
     return Scaffold(
       appBar: AppBar(
-        title: Row(
+        title: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             const LogoWidget(width: 28, height: 28),
-            const SizedBox(width: 10),
+            const SizedBox(height: 4),
             Expanded(
-              child: ShaderMask(
-                shaderCallback: (bounds) => LinearGradient(
-                  colors: [
-                    purple,
-                    purple.withValues(alpha: 0.7),
-                    const Color(0xFFE0B0FF),
-                  ],
-                ).createShader(bounds),
-                child: Hero(
-                  tag: 'product-title-${widget.product.id}',
-                  flightShuttleBuilder: (
-                    BuildContext flightContext,
-                    Animation<double> animation,
-                    HeroFlightDirection flightDirection,
-                    BuildContext fromHeroContext,
-                    BuildContext toHeroContext,
-                  ) {
-                    final Hero toHero = toHeroContext.widget as Hero;
-                    return RotationTransition(
-                      turns: animation,
-                      child: toHero.child,
-                    );
-                  },
-                  child: Material(
-                    color: Colors.transparent,
-                    child: Text(
-                      widget.product.name,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.bold,
-                      ),
-                      overflow: TextOverflow.ellipsis,
+              child: Hero(
+                tag: 'product-title-${widget.product.id}',
+                flightShuttleBuilder: (
+                  BuildContext flightContext,
+                  Animation<double> animation,
+                  HeroFlightDirection flightDirection,
+                  BuildContext fromHeroContext,
+                  BuildContext toHeroContext,
+                ) {
+                  final Hero toHero = toHeroContext.widget as Hero;
+                  return RotationTransition(
+                    turns: animation,
+                    child: toHero.child,
+                  );
+                },
+                child: Material(
+                  color: Colors.transparent,
+                  child: Text(
+                    widget.product.name,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 14,
                     ),
+                    overflow: TextOverflow.ellipsis,
+                    textAlign: TextAlign.center,
                   ),
                 ),
               ),
             ),
           ],
         ),
+        centerTitle: true,
         backgroundColor: const Color(0xFF0F0F1E),
         foregroundColor: const Color(0xFFE0B0FF),
         actions: [
