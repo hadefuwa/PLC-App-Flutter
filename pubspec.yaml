@@ -1,7 +1,7 @@
 name: matrix_app
 description: Smart Factory Education App
 publish_to: 'none'
-version: 1.0.7+1
+version: 1.0.8+1
 
 environment:
   sdk: '>=3.0.0 <4.0.0'
@@ -19,6 +19,7 @@ dependencies:
   chewie: ^1.7.4
   path_provider: ^2.1.1
   shared_preferences: ^2.2.2
+  dart_snap7: ^0.5.3
 
 dev_dependencies:
   flutter_test:

@@ -1,8 +1,9 @@
 import 'dart:async';
-import 'dart:io';
+import 'dart:io' show Platform;
 import 'dart:typed_data';
 import '../models/data_stream_log.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:dart_snap7/dart_snap7.dart';
 
 class PLCCommunicationService {
   static final PLCCommunicationService _instance = PLCCommunicationService._internal();
@@ -13,20 +14,19 @@ class PLCCommunicationService {
   static const String _prefKeyLiveMode = 'live_mode_enabled';
   static const String _prefKeyRack = 'plc_rack';
   static const String _prefKeySlot = 'plc_slot';
-  
+
   String? _plcIpAddress;
   int _rack = 0;
   int _slot = 1;
-  bool _isLiveMode = true; // Default to live mode
-  Socket? _socket;
+  bool _isLiveMode = true;
+  AsyncClient? _client;
   Timer? _connectionTimer;
   bool _isConnected = false;
-  int _pduReference = 0;
   String _lastError = '';
-  
+
   // Connection retry settings
   static const int _maxRetries = 3;
-  static const Duration _retryDelay = Duration(seconds: 1);
+  static const Duration _retryDelay = Duration(seconds: 2);
   DateTime? _lastConnectionAttempt;
   static const Duration _connectionAttemptInterval = Duration(seconds: 5);
 
@@ -39,18 +39,18 @@ class PLCCommunicationService {
   // Initialize and load settings
   Future<void> initialize() async {
     final prefs = await SharedPreferences.getInstance();
-    _plcIpAddress = prefs.getString(_prefKeyPlcIp) ?? '192.168.7.2';
+    _plcIpAddress = prefs.getString(_prefKeyPlcIp) ?? '192.168.0.99';
     _rack = prefs.getInt(_prefKeyRack) ?? 0;
     _slot = prefs.getInt(_prefKeySlot) ?? 1;
-    _isLiveMode = prefs.getBool(_prefKeyLiveMode) ?? true; // Default to live mode
+    _isLiveMode = prefs.getBool(_prefKeyLiveMode) ?? true;
   }
 
   // Get PLC IP address
-  String get plcIpAddress => _plcIpAddress ?? '192.168.7.2';
-  
+  String get plcIpAddress => _plcIpAddress ?? '192.168.0.99';
+
   // Get rack
   int get rack => _rack;
-  
+
   // Get slot
   int get slot => _slot;
 
@@ -60,10 +60,10 @@ class PLCCommunicationService {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_prefKeyPlcIp, ip);
     _logDataStream('TX', 'SETTINGS', 'IP_ADDRESS', 'IP address set to $ip');
-    
+
     // Reconnect if in live mode
     if (_isLiveMode && _isConnected) {
-      disconnect();
+      await disconnect();
       await connect();
     }
   }
@@ -76,10 +76,10 @@ class PLCCommunicationService {
     await prefs.setInt(_prefKeyRack, rack);
     await prefs.setInt(_prefKeySlot, slot);
     _logDataStream('TX', 'SETTINGS', 'RACK_SLOT', 'Rack: $rack, Slot: $slot');
-    
+
     // Reconnect if in live mode
     if (_isLiveMode && _isConnected) {
-      disconnect();
+      await disconnect();
       await connect();
     }
   }
@@ -92,18 +92,27 @@ class PLCCommunicationService {
     _isLiveMode = enabled;
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool(_prefKeyLiveMode, enabled);
-    
+
     if (enabled) {
       _logDataStream('TX', 'SETTINGS', 'MODE', 'Live mode enabled');
       await connect();
     } else {
       _logDataStream('TX', 'SETTINGS', 'MODE', 'Simulation mode enabled');
-      disconnect();
+      await disconnect();
     }
   }
 
-  // Connect to PLC using S7 protocol with retry logic
+  // Connect to PLC using dart_snap7
   Future<bool> connect() async {
+    // Check if running on iOS
+    if (Platform.isIOS) {
+      _lastError = 'PLC connection is only supported on Android devices';
+      _logDataStream('TX', 'ERROR', 'PLATFORM_NOT_SUPPORTED',
+        '⚠️ PLC connection is only supported on Android. iOS support requires additional native library setup.');
+      _isConnected = false;
+      return false;
+    }
+
     if (!_isLiveMode || _plcIpAddress == null) {
       return false;
     }
@@ -120,94 +129,60 @@ class PLCCommunicationService {
       _lastConnectionAttempt = currentTime;
 
       // Check if already connected
-      if (_isConnected && _socket != null) {
+      if (_isConnected && _client != null) {
         return true;
       }
 
-      _logDataStream('TX', 'CONNECTION', 'CONNECT', 'Connecting to S7-1200 at $_plcIpAddress (Rack: $_rack, Slot: $_slot)...');
+      _logDataStream('TX', 'CONNECTION', 'CONNECT',
+        'Connecting to S7-1200 at $_plcIpAddress (Rack: $_rack, Slot: $_slot) using dart_snap7...');
 
       // Try to connect with retries
       for (int attempt = 0; attempt < _maxRetries; attempt++) {
         try {
-          // S7 protocol uses port 102
-          _socket?.close(); // Close any existing socket
-          _socket = await Socket.connect(
-            _plcIpAddress!,
-            102,
-            timeout: const Duration(seconds: 5),
-          ).timeout(
-            const Duration(seconds: 5),
-            onTimeout: () => throw TimeoutException('Connection timeout'),
-          );
-
-          // Phase 1: ISO-COTP Connection Request
-          final cotpConnectionRequest = _buildCOTPConnectionRequest();
-          _socket!.add(cotpConnectionRequest);
-          await _socket!.flush();
-
-          _logDataStream('TX', 'COTP', 'CONNECTION_REQUEST', 'Sent COTP connection request (attempt ${attempt + 1}/$_maxRetries)');
-          _logDataStream('TX', 'DEBUG', 'HEX_DUMP', 'Sent: ${_hexDump(cotpConnectionRequest)}');
-
-          // Wait for COTP Connection Confirm
-          // Read response with proper buffering
-          final cotpResponse = await _readResponse(timeout: const Duration(seconds: 5));
-          if (cotpResponse == null) {
-            throw TimeoutException('COTP response timeout');
-          }
-          
-          _logDataStream('RX', 'COTP', 'RESPONSE', 'Received ${cotpResponse.length} bytes: ${_hexDump(cotpResponse)}');
-
-          if (!_parseCOTPConnectionConfirm(cotpResponse)) {
-            _lastError = 'Invalid COTP connection confirm';
-            _logDataStream('RX', 'ERROR', 'COTP_FAILED', 'Invalid COTP connection confirm (attempt ${attempt + 1}/$_maxRetries)');
-            _socket?.close();
-            _socket = null;
-            if (attempt < _maxRetries - 1) {
-              await Future.delayed(_retryDelay);
+          // Cleanup any existing client
+          if (_client != null) {
+            try {
+              await _client!.disconnect();
+              await _client!.destroy();
+            } catch (e) {
+              _logDataStream('RX', 'DEBUG', 'CLEANUP', 'Error cleaning up old client: $e');
             }
-            continue;
+            _client = null;
           }
 
-          _logDataStream('RX', 'COTP', 'CONNECTION_CONFIRM', 'COTP connection established');
+          // Create new AsyncClient
+          _client = AsyncClient();
 
-          // Phase 2: S7 Communication Setup
-          final s7SetupRequest = _buildS7SetupCommunication();
-          _socket!.add(s7SetupRequest);
-          await _socket!.flush();
+          _logDataStream('TX', 'SNAP7', 'INIT', 'Initializing Snap7 client (attempt ${attempt + 1}/$_maxRetries)');
+          await _client!.init();
 
-          _logDataStream('TX', 'S7', 'SETUP_COMMUNICATION', 'Sent S7 communication setup');
-          _logDataStream('TX', 'DEBUG', 'HEX_DUMP', 'Sent: ${_hexDump(s7SetupRequest)}');
+          _logDataStream('TX', 'SNAP7', 'CONNECT', 'Connecting to PLC...');
+          await _client!.connect(_plcIpAddress!, _rack, _slot);
 
-          // Wait for S7 Setup response
-          final s7Response = await _readResponse(timeout: const Duration(seconds: 5));
-          if (s7Response == null) {
-            throw TimeoutException('S7 setup response timeout');
-          }
-          
-          _logDataStream('RX', 'S7', 'RESPONSE', 'Received ${s7Response.length} bytes: ${_hexDump(s7Response)}');
+          _isConnected = true;
+          _lastError = '';
+          _logDataStream('RX', 'CONNECTION', 'CONNECTED',
+            'Successfully connected to S7-1200 using dart_snap7!');
 
-          if (_parseS7SetupResponse(s7Response)) {
-            _isConnected = true;
-            _lastError = '';
-            _logDataStream('RX', 'CONNECTION', 'CONNECTED', 'Successfully connected to S7-1200');
+          // Start periodic status check
+          _startPeriodicStatusCheck();
+          return true;
 
-            // Note: Permanent listener will be set up by _startPeriodicStatusCheck if needed
-            // For now, connection is established and we can proceed with reads/writes
-
-            // Start periodic status check
-            _startPeriodicStatusCheck();
-            return true;
-          } else {
-            _lastError = 'Invalid S7 setup response';
-            _logDataStream('RX', 'ERROR', 'S7_SETUP_FAILED', 'Invalid S7 setup response (attempt ${attempt + 1}/$_maxRetries)');
-            _socket?.close();
-            _socket = null;
-          }
         } catch (e) {
           _lastError = 'Connection error: $e';
-          _logDataStream('RX', 'ERROR', 'CONNECTION_FAILED', '$e (attempt ${attempt + 1}/$_maxRetries)');
-          _socket?.close();
-          _socket = null;
+          _logDataStream('RX', 'ERROR', 'CONNECTION_FAILED',
+            '$e (attempt ${attempt + 1}/$_maxRetries)');
+
+          // Cleanup on failure
+          if (_client != null) {
+            try {
+              await _client!.disconnect();
+              await _client!.destroy();
+            } catch (cleanupError) {
+              _logDataStream('RX', 'DEBUG', 'CLEANUP_ERROR', 'Error during cleanup: $cleanupError');
+            }
+            _client = null;
+          }
         }
 
         // Wait before retry
@@ -221,484 +196,291 @@ class PLCCommunicationService {
     } catch (e) {
       _lastError = 'Connection error: $e';
       _logDataStream('RX', 'ERROR', 'CONNECTION_FAILED', e.toString());
-      _socket?.close();
-      _socket = null;
+      if (_client != null) {
+        try {
+          await _client!.disconnect();
+          await _client!.destroy();
+        } catch (cleanupError) {
+          // Ignore cleanup errors
+        }
+        _client = null;
+      }
       _isConnected = false;
       return false;
-    }
-  }
-
-  // Build COTP Connection Request (Phase 1)
-  Uint8List _buildCOTPConnectionRequest() {
-    // ISO COTP Connection Request (18 bytes)
-    final cotp = Uint8List(18);
-    cotp[0] = 0x11; // Length indicator (17 bytes following)
-    cotp[1] = 0xE0; // PDU Type: Connection Request (CR)
-    cotp[2] = 0x00; // Destination reference high
-    cotp[3] = 0x00; // Destination reference low
-    cotp[4] = 0x00; // Source reference high
-    cotp[5] = 0x01; // Source reference low
-    cotp[6] = 0x00; // Class/Options (Class 0)
-
-    // Parameter: TPDU Size (3 bytes)
-    cotp[7] = 0xC0;  // Parameter code: TPDU size
-    cotp[8] = 0x01;  // Parameter length
-    cotp[9] = 0x0A;  // TPDU size: 2^10 = 1024 bytes
-
-    // Parameter: Source TSAP (5 bytes)
-    cotp[10] = 0xC1; // Parameter code: Source TSAP
-    cotp[11] = 0x02; // Parameter length
-    cotp[12] = 0x01; // Source TSAP high (local)
-    cotp[13] = 0x00; // Source TSAP low
-
-    // Parameter: Destination TSAP (5 bytes)
-    cotp[14] = 0xC2; // Parameter code: Destination TSAP
-    cotp[15] = 0x02; // Parameter length
-    cotp[16] = 0x01; // Rack/Slot calculation: (1 * 2) + (rack * 0x20) + slot
-    cotp[17] = (_rack * 0x20) + _slot; // Rack and Slot encoded
-
-    // ISO TPKT Header (4 bytes) - length = 4 (TPKT) + 18 (COTP) = 22 bytes
-    final totalLength = 4 + cotp.length;
-    final tpkt = Uint8List(4);
-    tpkt[0] = 0x03; // Version
-    tpkt[1] = 0x00; // Reserved
-    tpkt[2] = (totalLength >> 8) & 0xFF; // Length high byte
-    tpkt[3] = totalLength & 0xFF; // Length low byte
-
-    return Uint8List.fromList([...tpkt, ...cotp]);
-  }
-
-  // Parse COTP Connection Confirm (Phase 1 Response)
-  bool _parseCOTPConnectionConfirm(List<int> data) {
-    if (data.length < 11) {
-      _logDataStream('RX', 'ERROR', 'COTP_PARSE', 'Response too short: ${data.length} bytes');
-      _logDataStream('RX', 'DEBUG', 'HEX_DUMP', _hexDump(data));
-      return false;
-    }
-
-    // Check TPKT header
-    if (data[0] != 0x03 || data[1] != 0x00) {
-      _logDataStream('RX', 'ERROR', 'COTP_PARSE', 'Invalid TPKT header: ${data[0].toRadixString(16)} ${data[1].toRadixString(16)}');
-      return false;
-    }
-
-    // Get TPKT length
-    final tpktLength = (data[2] << 8) | data[3];
-    if (data.length < tpktLength) {
-      _logDataStream('RX', 'ERROR', 'COTP_PARSE', 'Packet incomplete: got ${data.length}, expected $tpktLength');
-      return false;
-    }
-
-    // Check COTP header - 0xD0 is Connection Confirm (CC)
-    // COTP starts at offset 4 (after TPKT header)
-    if (data.length < 6 || data[4] != 0x11 || data[5] != 0xD0) {
-      _logDataStream('RX', 'ERROR', 'COTP_PARSE', 'Invalid COTP header: ${data.length >= 6 ? "${data[4].toRadixString(16)} ${data[5].toRadixString(16)}" : "too short"}');
-      _logDataStream('RX', 'DEBUG', 'HEX_DUMP', _hexDump(data));
-      return false;
-    }
-
-    return true;
-  }
-
-  // Build S7 Communication Setup (Phase 2)
-  Uint8List _buildS7SetupCommunication() {
-    // ISO COTP Data Header (3 bytes)
-    final cotp = Uint8List(3);
-    cotp[0] = 0x02; // Length indicator
-    cotp[1] = 0xF0; // PDU Type: Data (DT)
-    cotp[2] = 0x80; // TPDU number + EOT
-
-    // S7 Communication Setup (18 bytes)
-    final s7Setup = Uint8List(18);
-    s7Setup[0] = 0x32;  // Protocol ID (S7)
-    s7Setup[1] = 0x01;  // ROSCTR: Job (request)
-    s7Setup[2] = 0x00;  // Redundancy ID high
-    s7Setup[3] = 0x00;  // Redundancy ID low
-    s7Setup[4] = 0x00;  // PDU reference high
-    s7Setup[5] = 0x00;  // PDU reference low
-    s7Setup[6] = 0x00;  // Parameter length high
-    s7Setup[7] = 0x08;  // Parameter length low (8 bytes)
-    s7Setup[8] = 0x00;  // Data length high
-    s7Setup[9] = 0x00;  // Data length low
-
-    // Parameter: Function Setup Communication
-    s7Setup[10] = 0xF0; // Function: Setup communication
-    s7Setup[11] = 0x00; // Reserved
-    s7Setup[12] = 0x00; // Max AMQ (parallel jobs) Calling high
-    s7Setup[13] = 0x01; // Max AMQ (parallel jobs) Calling low
-    s7Setup[14] = 0x00; // Max AMQ (parallel jobs) Called high
-    s7Setup[15] = 0x01; // Max AMQ (parallel jobs) Called low
-    s7Setup[16] = 0x03; // PDU length high (960 bytes = 0x03C0)
-    s7Setup[17] = 0xC0; // PDU length low
-
-    // ISO TPKT Header (4 bytes) - length = 4 (TPKT) + 3 (COTP) + 18 (S7) = 25 bytes
-    final totalLength = 4 + cotp.length + s7Setup.length;
-    final tpkt = Uint8List(4);
-    tpkt[0] = 0x03; // Version
-    tpkt[1] = 0x00; // Reserved
-    tpkt[2] = (totalLength >> 8) & 0xFF; // Length high byte
-    tpkt[3] = totalLength & 0xFF; // Length low byte
-
-    return Uint8List.fromList([...tpkt, ...cotp, ...s7Setup]);
-  }
-
-  // Parse S7 Communication Setup Response (Phase 2 Response)
-  bool _parseS7SetupResponse(List<int> data) {
-    if (data.length < 20) {
-      _logDataStream('RX', 'ERROR', 'S7_PARSE', 'Response too short: ${data.length} bytes');
-      _logDataStream('RX', 'DEBUG', 'HEX_DUMP', _hexDump(data));
-      return false;
-    }
-
-    // Check TPKT header
-    if (data[0] != 0x03 || data[1] != 0x00) {
-      _logDataStream('RX', 'ERROR', 'S7_PARSE', 'Invalid TPKT header');
-      return false;
-    }
-
-    // Get TPKT length
-    final tpktLength = (data[2] << 8) | data[3];
-    if (data.length < tpktLength) {
-      _logDataStream('RX', 'ERROR', 'S7_PARSE', 'Packet incomplete: got ${data.length}, expected $tpktLength');
-      return false;
-    }
-
-    // COTP Data header starts at offset 4
-    if (data.length < 7 || data[4] != 0x02 || data[5] != 0xF0) {
-      _logDataStream('RX', 'ERROR', 'S7_PARSE', 'Invalid COTP Data header');
-      _logDataStream('RX', 'DEBUG', 'HEX_DUMP', _hexDump(data));
-      return false;
-    }
-
-    // S7 header starts at offset 7 (after TPKT 4 bytes + COTP 3 bytes)
-    if (data.length < 10 || data[7] != 0x32) {
-      _logDataStream('RX', 'ERROR', 'S7_PARSE', 'Invalid S7 Protocol ID: ${data.length >= 8 ? data[7].toRadixString(16) : "too short"}');
-      _logDataStream('RX', 'DEBUG', 'HEX_DUMP', _hexDump(data));
-      return false;
-    }
-
-    // Check ROSCTR: 0x03 = Ack_Data (response)
-    if (data[8] != 0x03) {
-      _logDataStream('RX', 'ERROR', 'S7_PARSE', 'Invalid ROSCTR: expected 0x03 (Ack_Data), got 0x${data[8].toRadixString(16)}');
-      _logDataStream('RX', 'DEBUG', 'HEX_DUMP', _hexDump(data));
-      return false;
-    }
-
-    // Check error code (offset 17 in S7 header = offset 24 total)
-    if (data.length >= 25 && data[24] != 0x00) {
-      _logDataStream('RX', 'ERROR', 'S7_ERROR', 'S7 error code: 0x${data[24].toRadixString(16)}');
-      return false;
-    }
-
-    return true;
-  }
-  
-  // Helper to create hex dump for debugging
-  String _hexDump(List<int> data, {int maxBytes = 64}) {
-    final bytes = data.length > maxBytes ? data.sublist(0, maxBytes) : data;
-    final hex = bytes.map((b) => b.toRadixString(16).padLeft(2, '0').toUpperCase()).join(' ');
-    return data.length > maxBytes ? '$hex... (${data.length} total)' : hex;
-  }
-  
-  // Read complete response from socket (handles TPKT length)
-  Future<List<int>?> _readResponse({required Duration timeout}) async {
-    if (_socket == null) return null;
-    
-    try {
-      final completer = Completer<List<int>?>();
-      final buffer = <int>[];
-      StreamSubscription? subscription;
-      Timer? timeoutTimer;
-      
-      subscription = _socket!.listen(
-        (data) {
-          buffer.addAll(data);
-          
-          // Check if we have at least TPKT header (4 bytes)
-          if (buffer.length >= 4) {
-            // Get TPKT length
-            final tpktLength = (buffer[2] << 8) | buffer[3];
-            
-            // If we have the complete packet, complete
-            if (buffer.length >= tpktLength) {
-              timeoutTimer?.cancel();
-              subscription?.cancel();
-              completer.complete(buffer.sublist(0, tpktLength));
-            }
-          }
-        },
-        onError: (error) {
-          timeoutTimer?.cancel();
-          subscription?.cancel();
-          completer.completeError(error);
-        },
-        onDone: () {
-          timeoutTimer?.cancel();
-          subscription?.cancel();
-          if (!completer.isCompleted) {
-            completer.complete(buffer.isEmpty ? null : buffer);
-          }
-        },
-        cancelOnError: false,
-      );
-      
-      timeoutTimer = Timer(timeout, () {
-        subscription?.cancel();
-        if (!completer.isCompleted) {
-          completer.complete(null);
-        }
-      });
-      
-      return await completer.future;
-    } catch (e) {
-      _logDataStream('RX', 'ERROR', 'READ_RESPONSE', 'Error reading response: $e');
-      return null;
     }
   }
 
   // Disconnect from PLC
-  void disconnect() {
+  Future<void> disconnect() async {
     _connectionTimer?.cancel();
     _connectionTimer = null;
-    
-    if (_socket != null) {
+
+    if (_client != null) {
       _logDataStream('TX', 'CONNECTION', 'DISCONNECT', 'Disconnecting from PLC...');
-      _socket!.close();
-      _socket = null;
+      try {
+        await _client!.disconnect();
+        await _client!.destroy();
+      } catch (e) {
+        _logDataStream('RX', 'ERROR', 'DISCONNECT', 'Error during disconnect: $e');
+      }
+      _client = null;
       _isConnected = false;
     }
   }
 
-  // Read from PLC (S7 Read)
-  Future<List<int>?> readArea(String area, int dbNumber, int start, int size) async {
-    if (!_isConnected || _socket == null) {
+  // Read data block bytes
+  Future<Uint8List?> readDataBlock(int dbNumber, int start, int size) async {
+    if (!_isConnected || _client == null) {
       _logDataStream('TX', 'ERROR', 'READ', 'Not connected to PLC');
       return null;
     }
 
     try {
-      // Map area string to area code
-      int areaCode;
-      switch (area.toUpperCase()) {
-        case 'DB':
-          areaCode = 0x84; // Data block
-          break;
-        case 'INPUT':
-          areaCode = 0x81; // Inputs
-          break;
-        case 'OUTPUT':
-          areaCode = 0x82; // Outputs
-          break;
-        case 'MEMORY':
-          areaCode = 0x83; // Memory
-          break;
-        default:
-          areaCode = 0x84; // Default to DB
-      }
+      _logDataStream('TX', 'S7', 'READ_DB',
+        'Reading DB$dbNumber from byte $start, size $size bytes');
 
-      final request = _buildS7ReadRequest(areaCode, dbNumber, start, size);
-      _socket!.add(request);
-      await _socket!.flush();
+      final data = await _client!.readDataBlock(dbNumber, start, size);
 
-      _logDataStream(
-        'TX',
-        'S7',
-        'READ',
-        'Reading $size bytes from $area${dbNumber > 0 ? '.DB$dbNumber' : ''} at address $start',
-      );
+      _logDataStream('RX', 'S7', 'READ_DB',
+        'Read ${data.length} bytes: ${_hexDump(data)}');
 
-      // Wait for response (simplified - in production you'd need proper response handling)
-      return null; // Response handled in _handleReceivedData
+      return data;
     } catch (e) {
-      _logDataStream('TX', 'ERROR', 'READ', e.toString());
+      _lastError = 'Error reading DB$dbNumber: $e';
+      _logDataStream('RX', 'ERROR', 'READ_DB', _lastError);
       return null;
     }
   }
 
-  // Build S7 Read Request
-  Uint8List _buildS7ReadRequest(int area, int dbNumber, int start, int size) {
-    _pduReference = (_pduReference + 1) % 65536;
-    
-    // TPKT Header
-    final tpkt = Uint8List(4);
-    tpkt[0] = 0x03;
-    tpkt[1] = 0x00;
-    final totalLength = 31 + size;
-    tpkt[2] = (totalLength >> 8) & 0xFF;
-    tpkt[3] = totalLength & 0xFF;
-
-    // COTP Data Header
-    final cotp = Uint8List(4);
-    cotp[0] = 0x02; // Length
-    cotp[1] = 0xF0; // PDU Type: Data
-    cotp[2] = 0x80; // TPDU number
-
-    // S7 Header
-    final s7Header = Uint8List(12);
-    s7Header[0] = 0x32; // Protocol ID
-    s7Header[1] = 0x01; // Job type: Request
-    s7Header[2] = (_pduReference >> 8) & 0xFF; // PDU reference high
-    s7Header[3] = _pduReference & 0xFF; // PDU reference low
-    s7Header[4] = 0x00; // Parameter length high
-    s7Header[5] = 0x0F; // Parameter length low (15 bytes)
-    s7Header[6] = 0x00; // Data length high
-    s7Header[7] = 0x00; // Data length low
-
-    // S7 Read Request Parameter
-    final param = Uint8List(15);
-    param[0] = 0x04; // Function: Read
-    param[1] = 0x01; // Number of items
-    param[2] = 0x12; // Variable specification
-    param[3] = 0x0A; // Length of following address specification
-    param[4] = 0x10; // Syntax ID: S7Any
-    param[5] = area; // Transport size
-    param[6] = (size >> 8) & 0xFF; // Length high
-    param[7] = size & 0xFF; // Length low
-    param[8] = (dbNumber >> 8) & 0xFF; // DB number high
-    param[9] = dbNumber & 0xFF; // DB number low
-    param[10] = area == 0x84 ? 0x84 : 0x00; // Area code
-    param[11] = (start >> 24) & 0xFF; // Address byte 0
-    param[12] = (start >> 16) & 0xFF; // Address byte 1
-    param[13] = (start >> 8) & 0xFF; // Address byte 2
-    param[14] = start & 0xFF; // Address byte 3
-
-    return Uint8List.fromList([...tpkt, ...cotp, ...s7Header, ...param]);
-  }
-
-  // Write to PLC (S7 Write)
-  Future<bool> writeArea(String area, int dbNumber, int start, List<int> data) async {
-    if (!_isConnected || _socket == null) {
+  // Write data block bytes
+  Future<bool> writeDataBlock(int dbNumber, int start, Uint8List data) async {
+    if (!_isConnected || _client == null) {
       _logDataStream('TX', 'ERROR', 'WRITE', 'Not connected to PLC');
       return false;
     }
 
     try {
-      // Map area string to area code
-      int areaCode;
-      switch (area.toUpperCase()) {
-        case 'DB':
-          areaCode = 0x84;
-          break;
-        case 'INPUT':
-          areaCode = 0x81;
-          break;
-        case 'OUTPUT':
-          areaCode = 0x82;
-          break;
-        case 'MEMORY':
-          areaCode = 0x83;
-          break;
-        default:
-          areaCode = 0x84;
-      }
+      _logDataStream('TX', 'S7', 'WRITE_DB',
+        'Writing DB$dbNumber at byte $start, ${data.length} bytes: ${_hexDump(data)}');
 
-      final request = _buildS7WriteRequest(areaCode, dbNumber, start, data);
-      _socket!.add(request);
-      await _socket!.flush();
+      await _client!.writeDataBlock(dbNumber, start, data);
 
-      _logDataStream(
-        'TX',
-        'S7',
-        'WRITE',
-        'Writing ${data.length} bytes to $area${dbNumber > 0 ? '.DB$dbNumber' : ''} at address $start',
-      );
-
+      _logDataStream('RX', 'S7', 'WRITE_DB', 'Write successful');
       return true;
     } catch (e) {
-      _logDataStream('TX', 'ERROR', 'WRITE', e.toString());
+      _lastError = 'Error writing DB$dbNumber: $e';
+      _logDataStream('RX', 'ERROR', 'WRITE_DB', _lastError);
       return false;
     }
   }
 
-  // Build S7 Write Request
-  Uint8List _buildS7WriteRequest(int area, int dbNumber, int start, List<int> data) {
-    _pduReference = (_pduReference + 1) % 65536;
-    
-    final dataLength = data.length;
-    final totalLength = 35 + dataLength;
-    
-    // TPKT Header
-    final tpkt = Uint8List(4);
-    tpkt[0] = 0x03;
-    tpkt[1] = 0x00;
-    tpkt[2] = (totalLength >> 8) & 0xFF;
-    tpkt[3] = totalLength & 0xFF;
+  // Read Merkers (M memory)
+  Future<Uint8List?> readMerkers(int start, int size) async {
+    if (!_isConnected || _client == null) {
+      _logDataStream('TX', 'ERROR', 'READ', 'Not connected to PLC');
+      return null;
+    }
 
-    // COTP Data Header
-    final cotp = Uint8List(4);
-    cotp[0] = 0x02;
-    cotp[1] = 0xF0;
-    cotp[2] = 0x80;
+    try {
+      _logDataStream('TX', 'S7', 'READ_MERKERS',
+        'Reading Merkers from M$start, size $size bytes');
 
-    // S7 Header
-    final s7Header = Uint8List(12);
-    s7Header[0] = 0x32;
-    s7Header[1] = 0x01;
-    s7Header[2] = (_pduReference >> 8) & 0xFF;
-    s7Header[3] = _pduReference & 0xFF;
-    s7Header[4] = 0x00;
-    s7Header[5] = 0x0F; // Parameter length (15 bytes)
-    s7Header[6] = (dataLength >> 8) & 0xFF; // Data length high
-    s7Header[7] = dataLength & 0xFF; // Data length low
+      final data = await _client!.readMerkers(start, size);
 
-    // S7 Write Request Parameter
-    final param = Uint8List(15);
-    param[0] = 0x05; // Function: Write
-    param[1] = 0x01; // Number of items
-    param[2] = 0x12;
-    param[3] = 0x0A;
-    param[4] = 0x10;
-    param[5] = area;
-    param[6] = (dataLength >> 8) & 0xFF;
-    param[7] = dataLength & 0xFF;
-    param[8] = (dbNumber >> 8) & 0xFF;
-    param[9] = dbNumber & 0xFF;
-    param[10] = area == 0x84 ? 0x84 : 0x00;
-    param[11] = (start >> 24) & 0xFF;
-    param[12] = (start >> 16) & 0xFF;
-    param[13] = (start >> 8) & 0xFF;
-    param[14] = start & 0xFF;
+      _logDataStream('RX', 'S7', 'READ_MERKERS',
+        'Read ${data.length} bytes: ${_hexDump(data)}');
 
-    // Data
-    final dataHeader = Uint8List(4);
-    dataHeader[0] = 0x00; // Return code
-    dataHeader[1] = 0x04; // Transport size
-    dataHeader[2] = (dataLength >> 8) & 0xFF;
-    dataHeader[3] = dataLength & 0xFF;
-
-    return Uint8List.fromList([...tpkt, ...cotp, ...s7Header, ...param, ...dataHeader, ...data]);
+      return data;
+    } catch (e) {
+      _lastError = 'Error reading Merkers: $e';
+      _logDataStream('RX', 'ERROR', 'READ_MERKERS', _lastError);
+      return null;
+    }
   }
 
-  // Handle received data from PLC
-  void _handleReceivedData(List<int> data) {
-    if (data.isEmpty) return;
+  // Write Merkers (M memory)
+  Future<bool> writeMerkers(int start, Uint8List data) async {
+    if (!_isConnected || _client == null) {
+      _logDataStream('TX', 'ERROR', 'WRITE', 'Not connected to PLC');
+      return false;
+    }
 
-    // Parse S7 response
-    final hexString = data.map((b) => b.toRadixString(16).padLeft(2, '0')).join(' ');
-    _logDataStream(
-      'RX',
-      'S7',
-      'RESPONSE',
-      'Received ${data.length} bytes: $hexString',
-    );
+    try {
+      _logDataStream('TX', 'S7', 'WRITE_MERKERS',
+        'Writing Merkers at M$start, ${data.length} bytes: ${_hexDump(data)}');
 
-    // Parse S7 response and extract data
-    if (data.length >= 25) {
-      // Check if it's a read response
-      if (data[17] == 0x04) { // Read function
-        final dataLength = (data[25] << 8) | data[26];
-        if (data.length >= 27 + dataLength) {
-          final readData = data.sublist(27, 27 + dataLength);
-          _logDataStream(
-            'RX',
-            'S7',
-            'READ_DATA',
-            'Read ${readData.length} bytes: ${readData.map((b) => b.toRadixString(16).padLeft(2, '0')).join(' ')}',
-          );
-        }
-      } else if (data[17] == 0x05) { // Write function
-        _logDataStream('RX', 'S7', 'WRITE_CONFIRM', 'Write confirmed');
+      await _client!.writeMerkers(start, data);
+
+      _logDataStream('RX', 'S7', 'WRITE_MERKERS', 'Write successful');
+      return true;
+    } catch (e) {
+      _lastError = 'Error writing Merkers: $e';
+      _logDataStream('RX', 'ERROR', 'WRITE_MERKERS', _lastError);
+      return false;
+    }
+  }
+
+  // Read REAL (float) value from data block
+  Future<double?> readDbReal(int dbNumber, int offset) async {
+    try {
+      final data = await readDataBlock(dbNumber, offset, 4);
+      if (data == null || data.length < 4) {
+        _lastError = 'Error reading DB$dbNumber.DBD$offset: Invalid data';
+        return null;
       }
+
+      final byteData = ByteData.view(data.buffer);
+      return byteData.getFloat32(0, Endian.big);
+    } catch (e) {
+      _lastError = 'Error reading DB$dbNumber.DBD$offset: $e';
+      _logDataStream('RX', 'ERROR', 'READ_REAL', _lastError);
+      return null;
+    }
+  }
+
+  // Write REAL (float) value to data block
+  Future<bool> writeDbReal(int dbNumber, int offset, double value) async {
+    try {
+      final byteData = ByteData(4);
+      byteData.setFloat32(0, value, Endian.big);
+      final data = byteData.buffer.asUint8List();
+
+      return await writeDataBlock(dbNumber, offset, data);
+    } catch (e) {
+      _lastError = 'Error writing DB$dbNumber.DBD$offset: $e';
+      _logDataStream('TX', 'ERROR', 'WRITE_REAL', _lastError);
+      return false;
+    }
+  }
+
+  // Read BOOL value from data block
+  Future<bool?> readDbBool(int dbNumber, int byteOffset, int bitOffset) async {
+    try {
+      if (bitOffset < 0 || bitOffset > 7) {
+        _lastError = 'Bit offset must be between 0 and 7';
+        return null;
+      }
+
+      final data = await readDataBlock(dbNumber, byteOffset, 1);
+      if (data == null || data.isEmpty) {
+        _lastError = 'Error reading DB$dbNumber.DBX$byteOffset.$bitOffset: Invalid data';
+        return null;
+      }
+
+      return data[0].getBit(bitOffset);
+    } catch (e) {
+      _lastError = 'Error reading DB$dbNumber.DBX$byteOffset.$bitOffset: $e';
+      _logDataStream('RX', 'ERROR', 'READ_BOOL', _lastError);
+      return null;
+    }
+  }
+
+  // Write BOOL value to data block
+  Future<bool> writeDbBool(int dbNumber, int byteOffset, int bitOffset, bool value) async {
+    try {
+      if (bitOffset < 0 || bitOffset > 7) {
+        _lastError = 'Bit offset must be between 0 and 7';
+        return false;
+      }
+
+      // Read current byte
+      final currentData = await readDataBlock(dbNumber, byteOffset, 1);
+      if (currentData == null || currentData.isEmpty) {
+        _lastError = 'Error reading DB$dbNumber.DBX$byteOffset.$bitOffset for write';
+        return false;
+      }
+
+      // Modify bit
+      final byteValue = currentData[0].setBit(bitOffset, value);
+
+      // Write back
+      return await writeDataBlock(dbNumber, byteOffset, Uint8List.fromList([byteValue]));
+    } catch (e) {
+      _lastError = 'Error writing DB$dbNumber.DBX$byteOffset.$bitOffset: $e';
+      _logDataStream('TX', 'ERROR', 'WRITE_BOOL', _lastError);
+      return false;
+    }
+  }
+
+  // Read INT value from data block
+  Future<int?> readDbInt(int dbNumber, int offset) async {
+    try {
+      final data = await readDataBlock(dbNumber, offset, 2);
+      if (data == null || data.length < 2) {
+        _lastError = 'Error reading DB$dbNumber.DBW$offset: Invalid data';
+        return null;
+      }
+
+      final byteData = ByteData.view(data.buffer);
+      return byteData.getInt16(0, Endian.big);
+    } catch (e) {
+      _lastError = 'Error reading DB$dbNumber.DBW$offset: $e';
+      _logDataStream('RX', 'ERROR', 'READ_INT', _lastError);
+      return null;
+    }
+  }
+
+  // Write INT value to data block
+  Future<bool> writeDbInt(int dbNumber, int offset, int value) async {
+    try {
+      final byteData = ByteData(2);
+      byteData.setInt16(0, value, Endian.big);
+      final data = byteData.buffer.asUint8List();
+
+      return await writeDataBlock(dbNumber, offset, data);
+    } catch (e) {
+      _lastError = 'Error writing DB$dbNumber.DBW$offset: $e';
+      _logDataStream('TX', 'ERROR', 'WRITE_INT', _lastError);
+      return false;
+    }
+  }
+
+  // Read Merker bit
+  Future<bool?> readMBit(int byteOffset, int bitOffset) async {
+    try {
+      if (bitOffset < 0 || bitOffset > 7) {
+        _lastError = 'Bit offset must be between 0 and 7';
+        return null;
+      }
+
+      final data = await readMerkers(byteOffset, 1);
+      if (data == null || data.isEmpty) {
+        _lastError = 'Error reading M$byteOffset.$bitOffset: Invalid data';
+        return null;
+      }
+
+      return data[0].getBit(bitOffset);
+    } catch (e) {
+      _lastError = 'Error reading M$byteOffset.$bitOffset: $e';
+      _logDataStream('RX', 'ERROR', 'READ_M_BIT', _lastError);
+      return null;
+    }
+  }
+
+  // Write Merker bit
+  Future<bool> writeMBit(int byteOffset, int bitOffset, bool value) async {
+    try {
+      if (bitOffset < 0 || bitOffset > 7) {
+        _lastError = 'Bit offset must be between 0 and 7';
+        return false;
+      }
+
+      // Read current byte
+      final currentData = await readMerkers(byteOffset, 1);
+      if (currentData == null || currentData.isEmpty) {
+        _lastError = 'Error reading M$byteOffset.$bitOffset for write';
+        return false;
+      }
+
+      // Modify bit
+      final byteValue = currentData[0].setBit(bitOffset, value);
+
+      // Write back
+      return await writeMerkers(byteOffset, Uint8List.fromList([byteValue]));
+    } catch (e) {
+      _lastError = 'Error writing M$byteOffset.$bitOffset: $e';
+      _logDataStream('TX', 'ERROR', 'WRITE_M_BIT', _lastError);
+      return false;
     }
   }
 
@@ -706,14 +488,25 @@ class PLCCommunicationService {
   void _startPeriodicStatusCheck() {
     _connectionTimer?.cancel();
     _connectionTimer = Timer.periodic(
-      const Duration(seconds: 1),
-      (_) {
-        if (_isConnected && _isLiveMode) {
-          // Read inputs (I area) - example: read 10 bytes from input area
-          readArea('INPUT', 0, 0, 10);
+      const Duration(seconds: 2),
+      (_) async {
+        if (_isConnected && _isLiveMode && _client != null) {
+          try {
+            // Example: read DB1 first 10 bytes as a heartbeat
+            await readDataBlock(1, 0, 10);
+          } catch (e) {
+            _logDataStream('RX', 'ERROR', 'HEARTBEAT', 'Heartbeat failed: $e');
+          }
         }
       },
     );
+  }
+
+  // Helper to create hex dump for debugging
+  String _hexDump(Uint8List data, {int maxBytes = 32}) {
+    final bytes = data.length > maxBytes ? data.sublist(0, maxBytes) : data;
+    final hex = bytes.map((b) => b.toRadixString(16).padLeft(2, '0').toUpperCase()).join(' ');
+    return data.length > maxBytes ? '$hex... (${data.length} total)' : hex;
   }
 
   // Log data stream entry
@@ -727,7 +520,7 @@ class PLCCommunicationService {
     );
 
     _logHistory.add(entry);
-    
+
     // Keep only last N entries
     if (_logHistory.length > _maxLogEntries) {
       _logHistory.removeAt(0);
@@ -737,11 +530,8 @@ class PLCCommunicationService {
   }
 
   // Get log history
-  List<DataStreamLogEntry> getLogHistory({int? limit}) {
-    if (limit == null) return List.from(_logHistory);
-    return _logHistory.length > limit
-        ? _logHistory.sublist(_logHistory.length - limit)
-        : List.from(_logHistory);
+  List<DataStreamLogEntry> getLogHistory() {
+    return List.unmodifiable(_logHistory);
   }
 
   // Clear log history
@@ -752,264 +542,40 @@ class PLCCommunicationService {
 
   // Check connection status
   bool get isConnected => _isConnected;
-  
+
   // Get last error message
   String get lastError => _lastError;
-  
+
   // Get connection status info
   Map<String, dynamic> getStatus() {
     return {
       'connected': _isConnected,
-      'ip': _plcIpAddress ?? '192.168.7.2',
+      'ip': _plcIpAddress ?? '192.168.0.99',
       'rack': _rack,
       'slot': _slot,
       'lastError': _lastError,
       'liveMode': _isLiveMode,
     };
   }
-  
-  // Read REAL (float) value from data block
-  Future<double?> readDbReal(int dbNumber, int offset) async {
-    try {
-      if (!_isConnected) {
-        _lastError = 'Not connected to PLC';
-        return null;
-      }
-      
-      final data = await readArea('DB', dbNumber, offset, 4);
-      if (data == null || data.length < 4) {
-        _lastError = 'Error reading DB$dbNumber.DBD$offset: Invalid data';
-        return null;
-      }
-      
-      // Convert bytes to REAL (IEEE 754 float)
-      final bytes = Uint8List.fromList(data);
-      final byteData = ByteData.sublistView(bytes);
-      return byteData.getFloat32(0, Endian.big);
-    } catch (e) {
-      _lastError = 'Error reading DB$dbNumber.DBD$offset: $e';
-      _logDataStream('RX', 'ERROR', 'READ_REAL', _lastError);
-      return null;
-    }
-  }
-  
-  // Write REAL (float) value to data block
-  Future<bool> writeDbReal(int dbNumber, int offset, double value) async {
-    try {
-      if (!_isConnected) {
-        _lastError = 'Not connected to PLC';
-        return false;
-      }
-      
-      // Convert REAL to bytes (IEEE 754 float)
-      final byteData = ByteData(4);
-      byteData.setFloat32(0, value, Endian.big);
-      final data = byteData.buffer.asUint8List();
-      
-      final success = await writeArea('DB', dbNumber, offset, data);
-      if (!success) {
-        _lastError = 'Error writing DB$dbNumber.DBD$offset: Write failed';
-      }
-      return success;
-    } catch (e) {
-      _lastError = 'Error writing DB$dbNumber.DBD$offset: $e';
-      _logDataStream('TX', 'ERROR', 'WRITE_REAL', _lastError);
-      return false;
-    }
-  }
-  
-  // Read BOOL value from data block
-  Future<bool?> readDbBool(int dbNumber, int byteOffset, int bitOffset) async {
-    try {
-      if (!_isConnected) {
-        _lastError = 'Not connected to PLC';
-        return null;
-      }
-      
-      if (bitOffset < 0 || bitOffset > 7) {
-        _lastError = 'Bit offset must be between 0 and 7';
-        return null;
-      }
-      
-      final data = await readArea('DB', dbNumber, byteOffset, 1);
-      if (data == null || data.isEmpty) {
-        _lastError = 'Error reading DB$dbNumber.DBX$byteOffset.$bitOffset: Invalid data';
-        return null;
-      }
-      
-      // Extract bit
-      final byteValue = data[0];
-      return ((byteValue >> bitOffset) & 1) == 1;
-    } catch (e) {
-      _lastError = 'Error reading DB$dbNumber.DBX$byteOffset.$bitOffset: $e';
-      _logDataStream('RX', 'ERROR', 'READ_BOOL', _lastError);
-      return null;
-    }
-  }
-  
-  // Write BOOL value to data block (read-modify-write)
-  Future<bool> writeDbBool(int dbNumber, int byteOffset, int bitOffset, bool value) async {
-    try {
-      if (!_isConnected) {
-        _lastError = 'Not connected to PLC';
-        return false;
-      }
-      
-      if (bitOffset < 0 || bitOffset > 7) {
-        _lastError = 'Bit offset must be between 0 and 7';
-        return false;
-      }
-      
-      // Read current byte
-      final currentData = await readArea('DB', dbNumber, byteOffset, 1);
-      if (currentData == null || currentData.isEmpty) {
-        _lastError = 'Error reading DB$dbNumber.DBX$byteOffset.$bitOffset: Read failed';
-        return false;
-      }
-      
-      // Modify bit
-      int byteValue = currentData[0];
-      if (value) {
-        byteValue |= (1 << bitOffset);
-      } else {
-        byteValue &= ~(1 << bitOffset);
-      }
-      
-      // Write back
-      final success = await writeArea('DB', dbNumber, byteOffset, [byteValue]);
-      if (!success) {
-        _lastError = 'Error writing DB$dbNumber.DBX$byteOffset.$bitOffset: Write failed';
-      }
-      return success;
-    } catch (e) {
-      _lastError = 'Error writing DB$dbNumber.DBX$byteOffset.$bitOffset: $e';
-      _logDataStream('TX', 'ERROR', 'WRITE_BOOL', _lastError);
-      return false;
-    }
-  }
-  
-  // Read Merker (M memory) bit
-  Future<bool?> readMBit(int byteOffset, int bitOffset) async {
-    try {
-      if (!_isConnected) {
-        _lastError = 'Not connected to PLC';
-        return null;
-      }
-      
-      if (bitOffset < 0 || bitOffset > 7) {
-        _lastError = 'Bit offset must be between 0 and 7';
-        return null;
-      }
-      
-      final data = await readArea('MEMORY', 0, byteOffset, 1);
-      if (data == null || data.isEmpty) {
-        _lastError = 'Error reading M$byteOffset.$bitOffset: Invalid data';
-        return null;
-      }
-      
-      // Extract bit
-      final byteValue = data[0];
-      return ((byteValue >> bitOffset) & 1) == 1;
-    } catch (e) {
-      _lastError = 'Error reading M$byteOffset.$bitOffset: $e';
-      _logDataStream('RX', 'ERROR', 'READ_M_BIT', _lastError);
-      return null;
-    }
-  }
-  
-  // Write Merker (M memory) bit (read-modify-write)
-  Future<bool> writeMBit(int byteOffset, int bitOffset, bool value) async {
-    try {
-      if (!_isConnected) {
-        _lastError = 'Not connected to PLC';
-        return false;
-      }
-      
-      if (bitOffset < 0 || bitOffset > 7) {
-        _lastError = 'Bit offset must be between 0 and 7';
-        return false;
-      }
-      
-      // Read current byte
-      final currentData = await readArea('MEMORY', 0, byteOffset, 1);
-      if (currentData == null || currentData.isEmpty) {
-        _lastError = 'Error reading M$byteOffset.$bitOffset: Read failed';
-        return false;
-      }
-      
-      // Modify bit
-      int byteValue = currentData[0];
-      if (value) {
-        byteValue |= (1 << bitOffset);
-      } else {
-        byteValue &= ~(1 << bitOffset);
-      }
-      
-      // Write back
-      final success = await writeArea('MEMORY', 0, byteOffset, [byteValue]);
-      if (!success) {
-        _lastError = 'Error writing M$byteOffset.$bitOffset: Write failed';
-      }
-      return success;
-    } catch (e) {
-      _lastError = 'Error writing M$byteOffset.$bitOffset: $e';
-      _logDataStream('TX', 'ERROR', 'WRITE_M_BIT', _lastError);
-      return false;
-    }
-  }
-  
-  // Read INT value from data block
-  Future<int?> readDbInt(int dbNumber, int offset) async {
-    try {
-      if (!_isConnected) {
-        _lastError = 'Not connected to PLC';
-        return null;
-      }
-      
-      final data = await readArea('DB', dbNumber, offset, 2);
-      if (data == null || data.length < 2) {
-        _lastError = 'Error reading DB$dbNumber.DBW$offset: Invalid data';
-        return null;
-      }
-      
-      // Convert bytes to INT (big-endian)
-      final bytes = Uint8List.fromList(data);
-      final byteData = ByteData.sublistView(bytes);
-      return byteData.getInt16(0, Endian.big);
-    } catch (e) {
-      _lastError = 'Error reading DB$dbNumber.DBW$offset: $e';
-      _logDataStream('RX', 'ERROR', 'READ_INT', _lastError);
-      return null;
-    }
-  }
-  
-  // Write INT value to data block
-  Future<bool> writeDbInt(int dbNumber, int offset, int value) async {
-    try {
-      if (!_isConnected) {
-        _lastError = 'Not connected to PLC';
-        return false;
-      }
-      
-      // Convert INT to bytes (big-endian)
-      final byteData = ByteData(2);
-      byteData.setInt16(0, value, Endian.big);
-      final data = byteData.buffer.asUint8List();
-      
-      final success = await writeArea('DB', dbNumber, offset, data);
-      if (!success) {
-        _lastError = 'Error writing DB$dbNumber.DBW$offset: Write failed';
-      }
-      return success;
-    } catch (e) {
-      _lastError = 'Error writing DB$dbNumber.DBW$offset: $e';
-      _logDataStream('TX', 'ERROR', 'WRITE_INT', _lastError);
-      return false;
-    }
-  }
 
   void dispose() {
     disconnect();
     _logController.close();
+  }
+}
+
+// Extension for bit manipulation
+extension BitMap on int {
+  bool getBit(int pos) {
+    final x = this >> pos;
+    return x & 1 == 1;
+  }
+
+  int setBit(int pos, bool bit) {
+    final x = 1 << pos;
+    if (bit) {
+      return this | x;
+    }
+    return getBit(pos) ? this ^ x : this;
   }
 }

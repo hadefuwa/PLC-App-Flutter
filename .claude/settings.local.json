@@ -28,7 +28,12 @@
       "Bash(\"/c/Users/Hamed/Documents/flutter/bin/flutter.bat\" analyze --no-pub)",
       "Bash(ping:*)",
       "Bash(powershell -Command:*)",
-      "Bash(cmd.exe /c scriptsbuild-apk.bat)"
+      "Bash(cmd.exe /c scriptsbuild-apk.bat)",
+      "Bash(powershell -ExecutionPolicy Bypass -File test_connection.ps1:*)",
+      "Bash(README_PLC_SERVER.md)",
+      "Bash(\"/c/Users/Hamed/Documents/flutter/bin/flutter.bat\" pub add dart_snap7)",
+      "Bash(dir:*)",
+      "Bash(nul)"
     ],
     "deny": [],
     "ask": []
