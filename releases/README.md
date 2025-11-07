@@ -42,9 +42,9 @@ This release completely solves the `Failed to load dynamic library libsnap7.so` 
 - ✅ Platform-specific build problems
 
 ### Documentation
-- [MOKA7_IMPLEMENTATION.md](../MOKA7_IMPLEMENTATION.md) - Complete technical documentation
-- [MOKA7_QUICK_START.md](../MOKA7_QUICK_START.md) - Quick start guide
-- [MIGRATION_SUMMARY.md](../MIGRATION_SUMMARY.md) - Full migration details
+- [MOKA7_IMPLEMENTATION.md](../docs/MOKA7_IMPLEMENTATION.md) - Complete technical documentation
+- [MOKA7_QUICK_START.md](../docs/MOKA7_QUICK_START.md) - Quick start guide
+- [MIGRATION_SUMMARY.md](../docs/MIGRATION_SUMMARY.md) - Full migration details
 
 ### File Info
 - **File**: smart-factory-v1.0.9.apk

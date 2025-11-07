@@ -33,7 +33,9 @@
       "Bash(README_PLC_SERVER.md)",
       "Bash(\"/c/Users/Hamed/Documents/flutter/bin/flutter.bat\" pub add dart_snap7)",
       "Bash(dir:*)",
-      "Bash(nul)"
+      "Bash(nul)",
+      "Bash(gh release create:*)",
+      "Bash(gh auth status:*)"
     ],
     "deny": [],
     "ask": []
