@@ -1,10 +1,35 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import '../models/simulator_state.dart';
 import '../services/simulator_service.dart';
 import '../services/plc_communication_service.dart';
 
-class SFHomeScreen extends StatelessWidget {
+class SFHomeScreen extends StatefulWidget {
   const SFHomeScreen({super.key});
+
+  @override
+  State<SFHomeScreen> createState() => _SFHomeScreenState();
+}
+
+class _SFHomeScreenState extends State<SFHomeScreen> {
+  Timer? _statusCheckTimer;
+
+  @override
+  void initState() {
+    super.initState();
+    // Refresh UI every 2 seconds to update connection status
+    _statusCheckTimer = Timer.periodic(const Duration(seconds: 2), (_) {
+      if (mounted) {
+        setState(() {});
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _statusCheckTimer?.cancel();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {

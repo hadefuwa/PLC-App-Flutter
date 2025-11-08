@@ -2,17 +2,28 @@ import 'dart:async';
 import 'dart:math';
 import '../models/simulator_state.dart';
 import '../models/metrics_data.dart';
+import '../models/io_link_data.dart';
 
 class SimulatorService {
   static final SimulatorService _instance = SimulatorService._internal();
   factory SimulatorService() => _instance;
-  SimulatorService._internal();
+  SimulatorService._internal() {
+    // Initialize IO-Link data
+    _updateIOLinkData();
+    
+    // Start IO-Link update timer (runs even when system is stopped)
+    _ioLinkTimer = Timer.periodic(
+      const Duration(milliseconds: 500),
+      (_) => _updateIOLinkData(),
+    );
+  }
 
   final _stateController = StreamController<SimulatorState>.broadcast();
   Stream<SimulatorState> get stateStream => _stateController.stream;
 
   SimulatorState _state = SimulatorState();
   Timer? _simulationTimer;
+  Timer? _ioLinkTimer;
   DateTime? _startTime;
   final Random _random = Random();
 
@@ -40,7 +51,13 @@ class SimulatorService {
   // Force tracking for inputs and outputs
   final Map<String, bool?> _forcedIO = {}; // null = not forced, true/false = forced value
 
+  // IO-Link data
+  IOLinkData _ioLinkData = IOLinkData();
+  final _ioLinkController = StreamController<IOLinkData>.broadcast();
+  Stream<IOLinkData> get ioLinkStream => _ioLinkController.stream;
+
   SimulatorState get currentState => _state;
+  IOLinkData get ioLinkData => _ioLinkData;
 
   void setSpeedScaling(double scaling) {
     _speedScaling = scaling.clamp(0.1, 2.0);
@@ -262,22 +279,44 @@ class SimulatorService {
   // Apply forced input value
   void _applyForcedInput(String address, bool value) {
     switch (address) {
-      case 'I0.0':
+      case 'I0.0': // Estop Channel 1
+        _state = _state.copyWith(eStop: value);
+        if (value) {
+          _state = _state.copyWith(activeFault: FaultType.eStop, systemState: SystemState.faulted);
+        }
+        break;
+      case 'I0.1': // Estop Channel 2
+        _state = _state.copyWith(eStop: value);
+        if (value) {
+          _state = _state.copyWith(activeFault: FaultType.eStop, systemState: SystemState.faulted);
+        }
+        break;
+      case 'I0.2': // Reset PB
+        if (value && _state.activeFault != FaultType.none) {
+          resetFaults();
+        }
+        break;
+      case 'I0.3': // Start PB
+        if (value && !_state.isRunning && _state.activeFault == FaultType.none) {
+          start();
+        }
+        break;
+      case 'I0.4': // Stop PB
+        if (value && _state.isRunning) {
+          stop();
+        }
+        break;
+      case 'I0.5': // Light Sensor 1
         _state = _state.copyWith(firstGate: value);
         break;
-      case 'I0.1':
+      case 'I0.6': // Proxy Switch
+        // Map to inductive sensor for now (can be extended)
         _state = _state.copyWith(inductive: value);
         break;
-      case 'I0.2':
-        _state = _state.copyWith(capacitive: value);
-        break;
-      case 'I0.3':
+      case 'I0.7': // Light Sensor 2
         _state = _state.copyWith(photoGate: value);
         break;
-      case 'I0.4':
-        _state = _state.copyWith(eStop: value);
-        break;
-      case 'I0.5':
+      case 'I1.0': // Gantry Limit Switch
         _state = _state.copyWith(gantryHome: value);
         break;
     }
@@ -286,23 +325,29 @@ class SimulatorService {
   // Apply forced output value
   void _applyForcedOutput(String address, bool value) {
     switch (address) {
-      case 'Q0.0':
-        _state = _state.copyWith(conveyor: value);
+      case 'Q0.0': // Stepper Pulse
+        _state = _state.copyWith(gantryStep: value);
         break;
-      case 'Q0.1':
-        _state = _state.copyWith(paddleSteel: value);
+      case 'Q0.1': // Stepper Direction
+        _state = _state.copyWith(gantryDir: value);
         break;
-      case 'Q0.2':
-        _state = _state.copyWith(paddleAluminium: value);
-        break;
-      case 'Q0.3':
+      case 'Q0.2': // Plunger Down
         _state = _state.copyWith(plungerDown: value);
         break;
-      case 'Q0.4':
+      case 'Q0.3': // Plunger Up
+        _state = _state.copyWith(plungerDown: !value);
+        break;
+      case 'Q0.4': // Vacuum
         _state = _state.copyWith(vacuum: value);
         break;
-      case 'Q0.5':
-        _state = _state.copyWith(gantryStep: value);
+      case 'Q0.5': // Conveyor
+        _state = _state.copyWith(conveyor: value);
+        break;
+      case 'Q0.6': // Reject Steel
+        _state = _state.copyWith(paddleSteel: value);
+        break;
+      case 'Q0.7': // Reject Aluminium
+        _state = _state.copyWith(paddleAluminium: value);
         break;
     }
   }
@@ -320,6 +365,9 @@ class SimulatorService {
         uptime: DateTime.now().difference(_startTime!),
       );
     }
+
+    // Update IO-Link data
+    _updateIOLinkData();
 
     // Spawn new parts based on speed
     final spawnChance = (_state.conveyorSpeed / 100.0) * _speedScaling * 0.3;
@@ -589,9 +637,39 @@ class SimulatorService {
     )).toList();
   }
 
+  void _updateIOLinkData() {
+    // Update H1 Status LED based on system state
+    bool greenLed = _state.isRunning && _state.activeFault == FaultType.none;
+    bool amberLed = _state.isRunning && _state.activeFault == FaultType.none && _state.totalCount > 0;
+    bool redLed = _state.activeFault != FaultType.none;
+
+    // Update capacitive proxy sensor
+    bool capProxyOn = _state.capacitive;
+    double temperature = 25.0 + (_random.nextDouble() * 5.0 - 2.5); // Simulate temperature variation
+    DateTime? lastDisconnected = _ioLinkData.capProxyLastDisconnected;
+
+    // Track disconnection (when sensor goes from ON to OFF)
+    if (_ioLinkData.capProxyOn && !capProxyOn) {
+      lastDisconnected = DateTime.now();
+    }
+
+    _ioLinkData = _ioLinkData.copyWith(
+      h1GreenLed: greenLed,
+      h1AmberLed: amberLed,
+      h1RedLed: redLed,
+      capProxyOn: capProxyOn,
+      capProxyTemperature: temperature,
+      capProxyLastDisconnected: lastDisconnected,
+    );
+
+    _ioLinkController.add(_ioLinkData);
+  }
+
   void dispose() {
     _simulationTimer?.cancel();
+    _ioLinkTimer?.cancel();
     _stateController.close();
+    _ioLinkController.close();
   }
 }
 

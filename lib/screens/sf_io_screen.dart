@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../models/simulator_state.dart';
+import '../models/io_link_data.dart';
 import '../services/simulator_service.dart';
 
 class SFIOScreen extends StatelessWidget {
@@ -348,24 +349,29 @@ class _PLCIOTable extends StatelessWidget {
           // Inputs Section
           _buildSectionHeader('Inputs (I)', Colors.blue, Icons.arrow_downward, isFirst: true),
           _buildTableHeader(['Address', 'Description', 'Status', 'Force']),
-          _buildTableRow('I0.0', 'First Gate', state.firstGate, true, 'I0.0'),
-          _buildTableRow('I0.1', 'Inductive Sensor', state.inductive, true, 'I0.1'),
-          _buildTableRow('I0.2', 'Capacitive Sensor', state.capacitive, true, 'I0.2'),
-          _buildTableRow('I0.3', 'Photo Gate', state.photoGate, true, 'I0.3'),
-          _buildTableRow('I0.4', 'E-Stop', state.eStop, true, 'I0.4'),
-          _buildTableRow('I0.5', 'Gantry Home', state.gantryHome, true, 'I0.5'),
+          _buildTableRow('I0.0', 'Estop Channel 1', state.eStop, true, 'I0.0'),
+          _buildTableRow('I0.1', 'Estop Channel 2', state.eStop, true, 'I0.1'),
+          _buildTableRow('I0.2', 'Reset PB', !state.isRunning && state.activeFault == FaultType.none, true, 'I0.2'),
+          _buildTableRow('I0.3', 'Start PB', state.isRunning, true, 'I0.3'),
+          _buildTableRow('I0.4', 'Stop PB', !state.isRunning, true, 'I0.4'),
+          _buildTableRow('I0.5', 'Light Sensor 1', state.firstGate, true, 'I0.5'),
+          _buildTableRow('I0.6', 'Proxy Switch', state.inductive || state.capacitive, true, 'I0.6'),
+          _buildTableRow('I0.7', 'Light Sensor 2', state.photoGate, true, 'I0.7'),
+          _buildTableRow('I1.0', 'Gantry Limit Switch', state.gantryHome, true, 'I1.0'),
           const SizedBox(height: 8),
           const Divider(color: Color(0xFF2A2A3E), height: 1),
           const SizedBox(height: 8),
           // Outputs Section
           _buildSectionHeader('Outputs (Q)', Colors.green, Icons.arrow_upward),
           _buildTableHeader(['Address', 'Description', 'Status', 'Force']),
-          _buildTableRow('Q0.0', 'Conveyor', state.conveyor, false, 'Q0.0'),
-          _buildTableRow('Q0.1', 'Paddle Steel', state.paddleSteel, false, 'Q0.1'),
-          _buildTableRow('Q0.2', 'Paddle Aluminium', state.paddleAluminium, false, 'Q0.2'),
-          _buildTableRow('Q0.3', 'Plunger Down', state.plungerDown, false, 'Q0.3'),
+          _buildTableRow('Q0.0', 'Stepper Pulse', state.gantryStep, false, 'Q0.0'),
+          _buildTableRow('Q0.1', 'Stepper Direction', state.gantryDir, false, 'Q0.1'),
+          _buildTableRow('Q0.2', 'Plunger Down', state.plungerDown, false, 'Q0.2'),
+          _buildTableRow('Q0.3', 'Plunger Up', !state.plungerDown, false, 'Q0.3'),
           _buildTableRow('Q0.4', 'Vacuum', state.vacuum, false, 'Q0.4'),
-          _buildTableRow('Q0.5', 'Gantry Step', state.gantryStep, false, 'Q0.5'),
+          _buildTableRow('Q0.5', 'Conveyor', state.conveyor, false, 'Q0.5'),
+          _buildTableRow('Q0.6', 'Reject Steel', state.paddleSteel, false, 'Q0.6'),
+          _buildTableRow('Q0.7', 'Reject Aluminium', state.paddleAluminium, false, 'Q0.7'),
           const SizedBox(height: 8),
           const Divider(color: Color(0xFF2A2A3E), height: 1),
           const SizedBox(height: 8),
@@ -378,6 +384,18 @@ class _PLCIOTable extends StatelessWidget {
           _buildMemoryRow('M0.3', 'Sensor Fault', state.activeFault == FaultType.sensorStuck),
           _buildMemoryRow('M0.4', 'Paddle Jam', state.activeFault == FaultType.paddleJam),
           _buildMemoryRow('M0.5', 'Vacuum Leak', state.activeFault == FaultType.vacuumLeak),
+          const SizedBox(height: 8),
+          const Divider(color: Color(0xFF2A2A3E), height: 1),
+          const SizedBox(height: 8),
+          // IO-Link Section
+          StreamBuilder<IOLinkData>(
+            stream: simulator.ioLinkStream,
+            initialData: simulator.ioLinkData,
+            builder: (context, ioLinkSnapshot) {
+              final ioLinkData = ioLinkSnapshot.data!;
+              return _IOLinkSection(ioLinkData: ioLinkData);
+            },
+          ),
           const SizedBox(height: 16),
         ],
       ),
@@ -560,82 +578,92 @@ class _PLCIOTable extends StatelessWidget {
             flex: 4,
             child: Row(
               mainAxisAlignment: MainAxisAlignment.center,
+              mainAxisSize: MainAxisSize.min,
               children: [
-                SizedBox(
-                  height: 28,
-                  child: OutlinedButton(
-                    onPressed: () {
-                      if (isInput) {
-                        simulator.forceInput(ioAddress, true);
-                      } else {
-                        if (simulator.currentState.activeFault != FaultType.eStop) {
-                          simulator.forceOutput(ioAddress, true);
-                        }
-                      }
-                    },
-                    style: OutlinedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(horizontal: 8),
-                      minimumSize: const Size(0, 28),
-                      side: BorderSide(color: Colors.green.withValues(alpha: 0.5)),
-                      foregroundColor: Colors.green,
-                    ),
-                    child: const Text(
-                      'ON',
-                      style: TextStyle(fontSize: 10),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 4),
-                SizedBox(
-                  height: 28,
-                  child: OutlinedButton(
-                    onPressed: () {
-                      if (isInput) {
-                        simulator.forceInput(ioAddress, false);
-                      } else {
-                        if (simulator.currentState.activeFault != FaultType.eStop) {
-                          simulator.forceOutput(ioAddress, false);
-                        }
-                      }
-                    },
-                    style: OutlinedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(horizontal: 8),
-                      minimumSize: const Size(0, 28),
-                      side: BorderSide(color: Colors.red.withValues(alpha: 0.5)),
-                      foregroundColor: Colors.red,
-                    ),
-                    child: const Text(
-                      'OFF',
-                      style: TextStyle(fontSize: 10),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 4),
-                SizedBox(
-                  height: 28,
-                  child: OutlinedButton(
-                    onPressed: isForced
-                        ? () {
-                            if (isInput) {
-                              simulator.clearInputForce(ioAddress);
-                            } else {
-                              simulator.clearOutputForce(ioAddress);
-                            }
+                Flexible(
+                  child: SizedBox(
+                    height: 26,
+                    child: OutlinedButton(
+                      onPressed: () {
+                        if (isInput) {
+                          simulator.forceInput(ioAddress, true);
+                        } else {
+                          if (simulator.currentState.activeFault != FaultType.eStop) {
+                            simulator.forceOutput(ioAddress, true);
                           }
-                        : null,
-                    style: OutlinedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(horizontal: 8),
-                      minimumSize: const Size(0, 28),
-                      side: BorderSide(
-                        color: isForced
-                            ? Colors.orange.withValues(alpha: 0.5)
-                            : Colors.grey.withValues(alpha: 0.2),
+                        }
+                      },
+                      style: OutlinedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+                        minimumSize: const Size(0, 26),
+                        side: BorderSide(color: Colors.green.withValues(alpha: 0.5)),
+                        foregroundColor: Colors.green,
+                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                       ),
-                      foregroundColor: isForced ? Colors.orange : Colors.grey,
+                      child: const Text(
+                        'ON',
+                        style: TextStyle(fontSize: 9),
+                      ),
                     ),
-                    child: const Text(
-                      'Clear',
-                      style: TextStyle(fontSize: 10),
+                  ),
+                ),
+                const SizedBox(width: 3),
+                Flexible(
+                  child: SizedBox(
+                    height: 26,
+                    child: OutlinedButton(
+                      onPressed: () {
+                        if (isInput) {
+                          simulator.forceInput(ioAddress, false);
+                        } else {
+                          if (simulator.currentState.activeFault != FaultType.eStop) {
+                            simulator.forceOutput(ioAddress, false);
+                          }
+                        }
+                      },
+                      style: OutlinedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+                        minimumSize: const Size(0, 26),
+                        side: BorderSide(color: Colors.red.withValues(alpha: 0.5)),
+                        foregroundColor: Colors.red,
+                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      ),
+                      child: const Text(
+                        'OFF',
+                        style: TextStyle(fontSize: 9),
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 3),
+                Flexible(
+                  child: SizedBox(
+                    height: 26,
+                    child: OutlinedButton(
+                      onPressed: isForced
+                          ? () {
+                              if (isInput) {
+                                simulator.clearInputForce(ioAddress);
+                              } else {
+                                simulator.clearOutputForce(ioAddress);
+                              }
+                            }
+                          : null,
+                      style: OutlinedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+                        minimumSize: const Size(0, 26),
+                        side: BorderSide(
+                          color: isForced
+                              ? Colors.orange.withValues(alpha: 0.5)
+                              : Colors.grey.withValues(alpha: 0.2),
+                        ),
+                        foregroundColor: isForced ? Colors.orange : Colors.grey,
+                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      ),
+                      child: const Text(
+                        'Clear',
+                        style: TextStyle(fontSize: 9),
+                      ),
                     ),
                   ),
                 ),
@@ -722,6 +750,231 @@ class _PLCIOTable extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+class _IOLinkSection extends StatelessWidget {
+  final IOLinkData ioLinkData;
+
+  const _IOLinkSection({required this.ioLinkData});
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        // IO-Link Section Header
+        Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: Colors.orange.withValues(alpha: 0.1),
+          ),
+          child: Row(
+            children: [
+              Icon(Icons.link, color: Colors.orange, size: 20),
+              const SizedBox(width: 8),
+              const Text(
+                'IO Link',
+                style: TextStyle(
+                  color: Colors.orange,
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ],
+          ),
+        ),
+        // H1 Status LED
+        Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: const Color(0xFF1A1A2E),
+            border: Border(
+              bottom: BorderSide(
+                color: Colors.white.withValues(alpha: 0.05),
+                width: 1,
+              ),
+            ),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'H1 Status LED',
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white,
+                ),
+              ),
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  _LEDIndicator('Green', ioLinkData.h1GreenLed, Colors.green),
+                  const SizedBox(width: 16),
+                  _LEDIndicator('Amber', ioLinkData.h1AmberLed, Colors.orange),
+                  const SizedBox(width: 16),
+                  _LEDIndicator('Red', ioLinkData.h1RedLed, Colors.red),
+                ],
+              ),
+            ],
+          ),
+        ),
+        // Capacitive Proxy Sensor
+        Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: const Color(0xFF1A1A2E),
+            border: Border(
+              bottom: BorderSide(
+                color: Colors.white.withValues(alpha: 0.05),
+                width: 1,
+              ),
+            ),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Capacitive Proxy Sensor',
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white,
+                ),
+              ),
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  // Status
+                  Expanded(
+                    child: _IOLinkDataItem(
+                      label: 'Status',
+                      value: ioLinkData.capProxyOn ? 'ON' : 'OFF',
+                      valueColor: ioLinkData.capProxyOn ? Colors.green : Colors.grey,
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  // Temperature
+                  Expanded(
+                    child: _IOLinkDataItem(
+                      label: 'Temperature',
+                      value: '${ioLinkData.capProxyTemperature.toStringAsFixed(1)}°C',
+                      valueColor: Colors.blue,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              // Time Last Disconnected
+              _IOLinkDataItem(
+                label: 'Time Last Disconnected',
+                value: ioLinkData.capProxyLastDisconnected != null
+                    ? _formatTime(ioLinkData.capProxyLastDisconnected!)
+                    : 'Never',
+                valueColor: ioLinkData.capProxyLastDisconnected != null
+                    ? Colors.orange
+                    : Colors.grey,
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  String _formatTime(DateTime timestamp) {
+    final now = DateTime.now();
+    final diff = now.difference(timestamp);
+
+    if (diff.inSeconds < 60) {
+      return '${diff.inSeconds}s ago';
+    } else if (diff.inMinutes < 60) {
+      return '${diff.inMinutes}m ago';
+    } else if (diff.inHours < 24) {
+      return '${diff.inHours}h ago';
+    } else {
+      return '${timestamp.day}/${timestamp.month}/${timestamp.year} ${timestamp.hour.toString().padLeft(2, '0')}:${timestamp.minute.toString().padLeft(2, '0')}';
+    }
+  }
+}
+
+class _LEDIndicator extends StatelessWidget {
+  final String label;
+  final bool isOn;
+  final Color color;
+
+  const _LEDIndicator(this.label, this.isOn, this.color);
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          width: 16,
+          height: 16,
+          decoration: BoxDecoration(
+            color: isOn ? color : Colors.grey,
+            shape: BoxShape.circle,
+            boxShadow: isOn
+                ? [
+                    BoxShadow(
+                      color: color.withValues(alpha: 0.6),
+                      blurRadius: 6,
+                      spreadRadius: 2,
+                    )
+                  ]
+                : null,
+          ),
+        ),
+        const SizedBox(width: 8),
+        Text(
+          label,
+          style: TextStyle(
+            fontSize: 12,
+            color: Colors.white.withValues(alpha: 0.8),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _IOLinkDataItem extends StatelessWidget {
+  final String label;
+  final String value;
+  final Color valueColor;
+
+  const _IOLinkDataItem({
+    required this.label,
+    required this.value,
+    required this.valueColor,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: TextStyle(
+            fontSize: 11,
+            color: Colors.white.withValues(alpha: 0.6),
+          ),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          value,
+          style: TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.w600,
+            color: valueColor,
+          ),
+        ),
+      ],
     );
   }
 }
