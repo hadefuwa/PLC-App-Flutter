@@ -37,7 +37,8 @@
       "Bash(gh release create:*)",
       "Bash(gh auth status:*)",
       "Bash(git reset:*)",
-      "Bash(tree:*)"
+      "Bash(tree:*)",
+      "Bash(find:*)"
     ],
     "deny": [],
     "ask": []
