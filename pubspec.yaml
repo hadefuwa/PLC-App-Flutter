@@ -1,5 +1,5 @@
-name: plc_control_app
-description: PLC Control App
+name: s7_plc_companion
+description: S7 PLC Companion App
 publish_to: 'none'
 version: 1.0.0+1
 
@@ -12,6 +12,7 @@ dependencies:
   cupertino_icons: ^1.0.6
   flutter_svg: ^2.0.9
   shared_preferences: ^2.2.2
+  url_launcher: ^6.2.5
 
 dev_dependencies:
   flutter_test:

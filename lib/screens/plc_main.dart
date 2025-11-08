@@ -18,7 +18,7 @@ class _PLCMainState extends State<PLCMain> {
   ];
 
   static final List<String> _titles = [
-    'PLC I/O',
+    'S7 PLC Companion',
     'Settings',
   ];
 

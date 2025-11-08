@@ -140,9 +140,9 @@ class _SplashScreenState extends State<SplashScreen>
                       const SizedBox(height: 30),
                       // App Title
                       Text(
-                        'PLC Control',
+                        'S7 PLC Companion',
                         style: TextStyle(
-                          fontSize: 36,
+                          fontSize: 32,
                           fontWeight: FontWeight.bold,
                           color: Colors.white,
                           letterSpacing: 2,
@@ -157,7 +157,7 @@ class _SplashScreenState extends State<SplashScreen>
                       const SizedBox(height: 10),
                       // Subtitle
                       Text(
-                        'Industrial Control',
+                        'Siemens S7 Control',
                         style: TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.w300,

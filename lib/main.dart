@@ -13,11 +13,11 @@ class PLCApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'PLC Control',
+      title: 'S7 PLC Companion',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(
-          seedColor: const Color(0xFF9C27B0), // Purple
+          seedColor: const Color(0xFF009999), // Teal
           brightness: Brightness.dark,
         ),
         useMaterial3: true,
