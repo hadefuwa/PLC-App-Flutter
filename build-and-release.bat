@@ -33,7 +33,7 @@ echo APK copied successfully to releases\app-release.apk
 echo.
 
 echo [3/3] Committing and pushing to GitHub...
-git add releases\app-release.apk
+git add releases/app-release.apk
 git add .
 git commit -m "Update release APK - Build %DATE% %TIME%"
 if errorlevel 1 (
