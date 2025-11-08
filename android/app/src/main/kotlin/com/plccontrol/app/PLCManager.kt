@@ -482,6 +482,82 @@ class PLCManager {
     }
 
     /**
+     * Read inputs (I memory area)
+     * @param start Starting byte
+     * @param size Number of bytes to read
+     */
+    fun readInputs(start: Int, size: Int, result: MethodChannel.Result) {
+        executor.execute {
+            try {
+                if (!isConnected || client == null) {
+                    mainHandler.post {
+                        result.error("NOT_CONNECTED", "Not connected to PLC", null)
+                    }
+                    return@execute
+                }
+
+                val buffer = ByteArray(size)
+                val readResult = client!!.ReadArea(S7.S7AreaPE, 0, start, size, buffer)
+
+                if (readResult == 0) {
+                    mainHandler.post {
+                        result.success(buffer.toList()) // Convert to List<Int> for Flutter
+                    }
+                } else {
+                    val errorText = S7Client.ErrorText(readResult)
+                    Log.e(tag, "Read inputs error: $errorText (Code: $readResult)")
+                    mainHandler.post {
+                        result.error("READ_FAILED", errorText, readResult)
+                    }
+                }
+            } catch (e: Exception) {
+                Log.e(tag, "Read inputs exception: ${e.message}", e)
+                mainHandler.post {
+                    result.error("READ_ERROR", e.message ?: "Unknown error", null)
+                }
+            }
+        }
+    }
+
+    /**
+     * Read outputs (Q memory area)
+     * @param start Starting byte
+     * @param size Number of bytes to read
+     */
+    fun readOutputs(start: Int, size: Int, result: MethodChannel.Result) {
+        executor.execute {
+            try {
+                if (!isConnected || client == null) {
+                    mainHandler.post {
+                        result.error("NOT_CONNECTED", "Not connected to PLC", null)
+                    }
+                    return@execute
+                }
+
+                val buffer = ByteArray(size)
+                val readResult = client!!.ReadArea(S7.S7AreaPA, 0, start, size, buffer)
+
+                if (readResult == 0) {
+                    mainHandler.post {
+                        result.success(buffer.toList()) // Convert to List<Int> for Flutter
+                    }
+                } else {
+                    val errorText = S7Client.ErrorText(readResult)
+                    Log.e(tag, "Read outputs error: $errorText (Code: $readResult)")
+                    mainHandler.post {
+                        result.error("READ_FAILED", errorText, readResult)
+                    }
+                }
+            } catch (e: Exception) {
+                Log.e(tag, "Read outputs exception: ${e.message}", e)
+                mainHandler.post {
+                    result.error("READ_ERROR", e.message ?: "Unknown error", null)
+                }
+            }
+        }
+    }
+
+    /**
      * Cleanup resources
      */
     fun dispose() {

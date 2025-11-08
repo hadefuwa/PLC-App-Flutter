@@ -509,6 +509,74 @@ class PLCCommunicationService {
     return false;
   }
 
+  // Read inputs (I memory area)
+  Future<Uint8List?> readInputs(int start, int size) async {
+    if (!_isConnected) {
+      _logDataStream('TX', 'ERROR', 'READ_INPUTS', 'Not connected to PLC');
+      return null;
+    }
+
+    try {
+      _logDataStream('TX', 'S7', 'READ_INPUTS',
+        'Reading inputs from byte $start, size $size bytes');
+
+      final result = await platform.invokeMethod('readInputs', {
+        'start': start,
+        'size': size,
+      });
+
+      // Convert List<dynamic> to Uint8List
+      final data = Uint8List.fromList(List<int>.from(result));
+
+      _logDataStream('RX', 'S7', 'READ_INPUTS',
+        'Read ${data.length} bytes: ${_hexDump(data)}');
+
+      return data;
+    } on PlatformException catch (e) {
+      _lastError = 'Error reading inputs: ${e.message}';
+      _logDataStream('RX', 'ERROR', 'READ_INPUTS', _lastError);
+      return null;
+    } catch (e) {
+      _lastError = 'Error reading inputs: $e';
+      _logDataStream('RX', 'ERROR', 'READ_INPUTS', _lastError);
+      return null;
+    }
+  }
+
+  // Read outputs (Q memory area)
+  Future<Uint8List?> readOutputs(int start, int size) async {
+    if (!_isConnected) {
+      _logDataStream('TX', 'ERROR', 'READ_OUTPUTS', 'Not connected to PLC');
+      return null;
+    }
+
+    try {
+      _logDataStream('TX', 'S7', 'READ_OUTPUTS',
+        'Reading outputs from byte $start, size $size bytes');
+
+      final result = await platform.invokeMethod('readOutputs', {
+        'start': start,
+        'size': size,
+      });
+
+      // Convert List<dynamic> to Uint8List
+      final data = Uint8List.fromList(List<int>.from(result));
+
+      _logDataStream('RX', 'S7', 'READ_OUTPUTS',
+        'Read ${data.length} bytes: ${_hexDump(data)}');
+
+      return data;
+    } on PlatformException catch (e) {
+      _lastError = 'Error reading outputs: ${e.message}';
+      _logDataStream('RX', 'ERROR', 'READ_OUTPUTS', _lastError);
+      return null;
+    } catch (e) {
+      _lastError = 'Error reading outputs: $e';
+      _logDataStream('RX', 'ERROR', 'READ_OUTPUTS', _lastError);
+      return null;
+    }
+  }
+
   // Start periodic status check
   void _startPeriodicStatusCheck() {
     _connectionTimer?.cancel();

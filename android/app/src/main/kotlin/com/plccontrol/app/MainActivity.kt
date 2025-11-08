@@ -143,6 +143,18 @@ class MainActivity: FlutterActivity() {
                         plcManager.writeReal(dbNumber, byteOffset, value, result)
                     }
                 }
+                "readInputs" -> {
+                    val start = call.argument<Int>("start") ?: 0
+                    val size = call.argument<Int>("size") ?: 2
+
+                    plcManager.readInputs(start, size, result)
+                }
+                "readOutputs" -> {
+                    val start = call.argument<Int>("start") ?: 0
+                    val size = call.argument<Int>("size") ?: 1
+
+                    plcManager.readOutputs(start, size, result)
+                }
                 else -> {
                     result.notImplemented()
                 }

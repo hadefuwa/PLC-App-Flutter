@@ -1,7 +1,71 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
+import '../services/plc_communication_service.dart';
 
-class PLCIOScreen extends StatelessWidget {
+class PLCIOScreen extends StatefulWidget {
   const PLCIOScreen({super.key});
+
+  @override
+  State<PLCIOScreen> createState() => _PLCIOScreenState();
+}
+
+class _PLCIOScreenState extends State<PLCIOScreen> {
+  final _plcService = PLCCommunicationService();
+  Timer? _updateTimer;
+
+  // I/O state - 9 inputs (I0.0-I0.7, I1.0) and 8 outputs (Q0.0-Q0.7)
+  final List<bool> _inputs = List.filled(9, false);
+  final List<bool> _outputs = List.filled(8, false);
+
+  @override
+  void initState() {
+    super.initState();
+    _startPeriodicUpdate();
+  }
+
+  @override
+  void dispose() {
+    _updateTimer?.cancel();
+    super.dispose();
+  }
+
+  void _startPeriodicUpdate() {
+    _updateTimer?.cancel();
+    _updateTimer = Timer.periodic(const Duration(milliseconds: 500), (_) async {
+      if (_plcService.isConnected) {
+        await _updateIO();
+      }
+    });
+  }
+
+  Future<void> _updateIO() async {
+    try {
+      // Read inputs: I0.0-I0.7 (byte 0) and I1.0 (byte 1, bit 0)
+      final inputData = await _plcService.readInputs(0, 2);
+      if (inputData != null && mounted) {
+        setState(() {
+          // I0.0 to I0.7
+          for (int i = 0; i < 8; i++) {
+            _inputs[i] = (inputData[0] & (1 << i)) != 0;
+          }
+          // I1.0
+          _inputs[8] = (inputData[1] & 1) != 0;
+        });
+      }
+
+      // Read outputs: Q0.0-Q0.7 (byte 0)
+      final outputData = await _plcService.readOutputs(0, 1);
+      if (outputData != null && mounted) {
+        setState(() {
+          for (int i = 0; i < 8; i++) {
+            _outputs[i] = (outputData[0] & (1 << i)) != 0;
+          }
+        });
+      }
+    } catch (e) {
+      // Silently handle errors to avoid spamming logs
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -15,7 +79,7 @@ class PLCIOScreen extends StatelessWidget {
             style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: 16),
-          _PLCIOTable(),
+          _PLCIOTable(inputs: _inputs, outputs: _outputs),
         ],
       ),
     );
@@ -23,6 +87,11 @@ class PLCIOScreen extends StatelessWidget {
 }
 
 class _PLCIOTable extends StatelessWidget {
+  final List<bool> inputs;
+  final List<bool> outputs;
+
+  const _PLCIOTable({required this.inputs, required this.outputs});
+
   @override
   Widget build(BuildContext context) {
     final purple = Theme.of(context).colorScheme.primary;
@@ -42,29 +111,29 @@ class _PLCIOTable extends StatelessWidget {
           // Inputs Section
           _buildSectionHeader('Inputs (I)', Colors.blue, Icons.arrow_downward, isFirst: true),
           _buildTableHeader(['Address', 'Status']),
-          _buildTableRow('I0.0', false),
-          _buildTableRow('I0.1', false),
-          _buildTableRow('I0.2', false),
-          _buildTableRow('I0.3', false),
-          _buildTableRow('I0.4', false),
-          _buildTableRow('I0.5', false),
-          _buildTableRow('I0.6', false),
-          _buildTableRow('I0.7', false),
-          _buildTableRow('I1.0', false),
+          _buildTableRow('I0.0', inputs[0]),
+          _buildTableRow('I0.1', inputs[1]),
+          _buildTableRow('I0.2', inputs[2]),
+          _buildTableRow('I0.3', inputs[3]),
+          _buildTableRow('I0.4', inputs[4]),
+          _buildTableRow('I0.5', inputs[5]),
+          _buildTableRow('I0.6', inputs[6]),
+          _buildTableRow('I0.7', inputs[7]),
+          _buildTableRow('I1.0', inputs[8]),
           const SizedBox(height: 8),
           const Divider(color: Color(0xFF2A2A3E), height: 1),
           const SizedBox(height: 8),
           // Outputs Section
           _buildSectionHeader('Outputs (Q)', Colors.green, Icons.arrow_upward),
           _buildTableHeader(['Address', 'Status']),
-          _buildTableRow('Q0.0', false),
-          _buildTableRow('Q0.1', false),
-          _buildTableRow('Q0.2', false),
-          _buildTableRow('Q0.3', false),
-          _buildTableRow('Q0.4', false),
-          _buildTableRow('Q0.5', false),
-          _buildTableRow('Q0.6', false),
-          _buildTableRow('Q0.7', false),
+          _buildTableRow('Q0.0', outputs[0]),
+          _buildTableRow('Q0.1', outputs[1]),
+          _buildTableRow('Q0.2', outputs[2]),
+          _buildTableRow('Q0.3', outputs[3]),
+          _buildTableRow('Q0.4', outputs[4]),
+          _buildTableRow('Q0.5', outputs[5]),
+          _buildTableRow('Q0.6', outputs[6]),
+          _buildTableRow('Q0.7', outputs[7]),
           const SizedBox(height: 16),
         ],
       ),
