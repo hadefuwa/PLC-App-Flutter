@@ -49,5 +49,4 @@ app.*.map.json
 
 # Old APK versions (keep only latest in git)
 releases/smart-factory-v1.0.[0-8]*.apk
-releases/app-release.apk
 
