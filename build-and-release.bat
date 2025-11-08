@@ -13,9 +13,9 @@ set DATE=%datetime:~0,4%-%datetime:~4,2%-%datetime:~6,2%
 set TIME=%datetime:~8,2%:%datetime:~10,2%
 
 echo [1/3] Building APK (Release)...
-"%FLUTTER_PATH%" build apk --release
-if errorlevel 1 (
-    echo ERROR: Build failed!
+call "%FLUTTER_PATH%" build apk --release
+if not exist "build\app\outputs\flutter-apk\app-release.apk" (
+    echo ERROR: Build failed - APK not found!
     pause
     exit /b 1
 )

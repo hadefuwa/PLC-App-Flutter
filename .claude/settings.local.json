@@ -43,7 +43,9 @@
       "Bash(if not exist \"releases\" mkdir releases)",
       "Bash(copy /Y \"build\\app\\outputs\\flutter-apk\\app-release.apk\" \"releases\\app-release.apk\")",
       "Bash(cmd.exe /c \"if not exist releases mkdir releases\")",
-      "Bash(cmd.exe /c \"copy /Y build\\app\\outputs\\flutter-apk\\app-release.apk releases\\app-release.apk\")"
+      "Bash(cmd.exe /c \"copy /Y build\\app\\outputs\\flutter-apk\\app-release.apk releases\\app-release.apk\")",
+      "Bash(cmd.exe /c build-and-release.bat)",
+      "Bash(cmd.exe /c \"c:\\Users\\Hamed\\Documents\\plc-app-flutter\\build-and-release.bat\")"
     ],
     "deny": [],
     "ask": []
