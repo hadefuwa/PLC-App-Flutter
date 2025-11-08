@@ -41,5 +41,6 @@ app.*.map.json
 /android/app/profile
 /android/app/release
 
-# APK files
+# APK files - ignore build directory APKs but keep releases
 *.apk
+!releases/*.apk
