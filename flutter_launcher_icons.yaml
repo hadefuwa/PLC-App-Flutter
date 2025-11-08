@@ -1,6 +1,4 @@
 flutter_launcher_icons:
-  android: true
+  android: false
   ios: false
-  image_path: "assets/app-logo.png"
-  adaptive_icon_background: "#1a1a2e"
-  adaptive_icon_foreground: "assets/app-logo.png"
+  # Using default Android launcher icon

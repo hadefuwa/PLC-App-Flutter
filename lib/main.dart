@@ -1,19 +1,19 @@
 import 'package:flutter/material.dart';
-import 'screens/smart_factory_main.dart';
-import 'screens/sf_settings_screen.dart';
+import 'screens/plc_main.dart';
+import 'screens/plc_settings_screen.dart';
 import 'widgets/splash_screen.dart';
 
 void main() {
-  runApp(const SmartFactoryApp());
+  runApp(const PLCApp());
 }
 
-class SmartFactoryApp extends StatelessWidget {
-  const SmartFactoryApp({super.key});
+class PLCApp extends StatelessWidget {
+  const PLCApp({super.key});
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Smart Factory',
+      title: 'PLC Control',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(
@@ -39,8 +39,8 @@ class SmartFactoryApp extends StatelessWidget {
       themeMode: ThemeMode.dark, // Force dark mode
       home: const SplashWrapper(),
       routes: {
-        '/home': (context) => const SmartFactoryMain(),
-        '/settings': (context) => const SFSettingsScreen(),
+        '/home': (context) => const PLCMain(),
+        '/settings': (context) => const PLCSettingsScreen(),
       },
     );
   }
@@ -98,6 +98,6 @@ class _SplashWrapperState extends State<SplashWrapper>
         child: SplashScreen(onAnimationComplete: _onSplashComplete),
       );
     }
-    return const SmartFactoryMain();
+    return const PLCMain();
   }
 }

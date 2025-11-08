@@ -10,7 +10,7 @@
 
 # Keep all classes in dart_snap7 package (if any Java/Kotlin bindings exist)
 -keep class io.flutter.plugins.** { *; }
--keep class com.matrixtsl.smart_factory.** { *; }
+-keep class com.plccontrol.app.** { *; }
 
 # Keep JNI-related classes
 -keepclassmembers class * {

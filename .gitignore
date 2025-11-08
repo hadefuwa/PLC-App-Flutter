@@ -16,10 +16,8 @@ migrate_working_dir/
 *.iws
 .idea/
 
-# The .vscode folder contains launch configuration and tasks you configure in
-# VS Code which you may wish to be included in version control, so this line
-# is commented out by default.
-#.vscode/
+# VS Code
+.vscode/
 
 # Flutter/Dart/Pub related
 **/doc/api/
@@ -43,10 +41,5 @@ app.*.map.json
 /android/app/profile
 /android/app/release
 
-# APK files - ignore build directory APKs, but keep releases folder APKs
+# APK files
 *.apk
-!releases/*.apk
-
-# Old APK versions (keep only latest in git)
-releases/smart-factory-v1.0.[0-8]*.apk
-

@@ -7,15 +7,15 @@
 
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:smart_factory_app/main.dart';
+import 'package:plc_control_app/main.dart';
 
 void main() {
   testWidgets('Products list screen displays products', (WidgetTester tester) async {
     // Build our app and trigger a frame.
-    await tester.pumpWidget(const SmartFactoryApp());
+    await tester.pumpWidget(const PLCApp());
 
     // Verify that the products list screen is displayed
-    expect(find.text('Smart Factory'), findsWidgets);
+    expect(find.text('PLC App'), findsWidgets);
     
     // Verify that product cards are displayed
     expect(find.text('Maintenance of Closed Loop Systems'), findsOneWidget);

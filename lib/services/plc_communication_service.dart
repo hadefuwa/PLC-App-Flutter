@@ -19,7 +19,7 @@ class PLCCommunicationService {
   static const String _prefKeySlot = 'plc_slot';
 
   // MethodChannel for communicating with Android native code
-  static const platform = MethodChannel('com.matrixtsl.smart_factory/plc');
+  static const platform = MethodChannel('com.plccontrol.app/plc');
 
   String? _plcIpAddress;
   int _rack = 0;

@@ -1,6 +1,6 @@
 @echo off
 echo ============================================================
-echo Starting Smart Factory PLC Server
+echo Starting PLC App Server
 echo ============================================================
 echo.
 echo Server will be accessible at:
