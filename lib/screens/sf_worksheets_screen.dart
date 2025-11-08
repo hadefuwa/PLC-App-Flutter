@@ -240,14 +240,15 @@ class _WorksheetDetailScreen extends StatefulWidget {
   State<_WorksheetDetailScreen> createState() => _WorksheetDetailScreenState();
 }
 
-class _WorksheetDetailScreenState extends State<_WorksheetDetailScreen> {
+class _WorksheetDetailScreenState extends State<_WorksheetDetailScreen> with SingleTickerProviderStateMixin {
   final Set<int> _checkedSteps = {};
   final Set<int> _checkedOverToYou = {};
   final ProgressTrackingService _progressService = ProgressTrackingService();
   DateTime? _startTime;
   Timer? _timeTracker;
   final Map<int, int?> _quizAnswers = {};
-  bool _showQuizResults = false;
+  final Set<int> _lockedQuestions = {}; // Track which questions are locked
+  final Map<int, bool> _shakeQuestion = {}; // Track which questions should shake
 
   @override
   void initState() {
@@ -446,82 +447,135 @@ class _WorksheetDetailScreenState extends State<_WorksheetDetailScreen> {
                 children: List.generate(widget.worksheet.quiz.length, (qIndex) {
                   final question = widget.worksheet.quiz[qIndex];
                   final selectedAnswer = _quizAnswers[qIndex];
+                  final isLocked = _lockedQuestions.contains(qIndex);
                   final isCorrect = selectedAnswer == question.correctAnswerIndex;
+                  final shouldShake = _shakeQuestion[qIndex] ?? false;
 
-                  return Card(
-                    margin: const EdgeInsets.only(bottom: 16),
-                    color: const Color(0xFF1A1A2E),
-                    child: Padding(
-                      padding: const EdgeInsets.all(12),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Q${qIndex + 1}: ${question.question}',
-                            style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
-                          ),
-                          const SizedBox(height: 12),
-                          ...List.generate(question.options.length, (oIndex) {
-                            final isSelected = selectedAnswer == oIndex;
-                            final isThisCorrect = oIndex == question.correctAnswerIndex;
-                            Color? tileColor;
-                            if (_showQuizResults && isSelected) {
-                              tileColor = isCorrect ? Colors.green.withValues(alpha: 0.2) : Colors.red.withValues(alpha: 0.2);
-                            } else if (_showQuizResults && isThisCorrect) {
-                              tileColor = Colors.green.withValues(alpha: 0.1);
-                            }
-
-                            return RadioListTile<int>(
-                              title: Text(question.options[oIndex]),
-                              value: oIndex,
-                              groupValue: selectedAnswer,
-                              onChanged: _showQuizResults ? null : (value) {
-                                setState(() {
-                                  _quizAnswers[qIndex] = value;
-                                });
-                              },
-                              tileColor: tileColor,
-                              activeColor: Colors.purple,
-                            );
-                          }),
-                          if (_showQuizResults && selectedAnswer != null) ...[
-                            const SizedBox(height: 8),
-                            Container(
-                              padding: const EdgeInsets.all(12),
-                              decoration: BoxDecoration(
-                                color: isCorrect ? Colors.green.withValues(alpha: 0.2) : Colors.orange.withValues(alpha: 0.2),
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Row(
-                                    children: [
-                                      Icon(
-                                        isCorrect ? Icons.check_circle : Icons.info,
-                                        color: isCorrect ? Colors.green : Colors.orange,
-                                        size: 20,
-                                      ),
-                                      const SizedBox(width: 8),
-                                      Text(
-                                        isCorrect ? 'Correct!' : 'Incorrect',
-                                        style: TextStyle(
-                                          color: isCorrect ? Colors.green : Colors.orange,
-                                          fontWeight: FontWeight.bold,
-                                        ),
-                                      ),
-                                    ],
+                  return TweenAnimationBuilder<double>(
+                    key: ValueKey('question_$qIndex'),
+                    tween: Tween(begin: 0.0, end: shouldShake ? 1.0 : 0.0),
+                    duration: const Duration(milliseconds: 500),
+                    curve: Curves.elasticIn,
+                    onEnd: () {
+                      if (shouldShake) {
+                        setState(() {
+                          _shakeQuestion[qIndex] = false;
+                        });
+                      }
+                    },
+                    builder: (context, value, child) {
+                      final offset = shouldShake ? (value * 10 * (1 - value)) : 0.0;
+                      return Transform.translate(
+                        offset: Offset(offset, 0),
+                        child: child,
+                      );
+                    },
+                    child: Card(
+                      margin: const EdgeInsets.only(bottom: 16),
+                      color: const Color(0xFF1A1A2E),
+                      child: Padding(
+                        padding: const EdgeInsets.all(12),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: Text(
+                                    'Q${qIndex + 1}: ${question.question}',
+                                    style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
                                   ),
-                                  const SizedBox(height: 8),
-                                  Text(
-                                    question.explanation,
-                                    style: const TextStyle(fontSize: 13),
+                                ),
+                                if (isLocked)
+                                  Icon(
+                                    isCorrect ? Icons.check_circle : Icons.cancel,
+                                    color: isCorrect ? Colors.green : Colors.red,
+                                    size: 24,
                                   ),
-                                ],
-                              ),
+                              ],
                             ),
+                            const SizedBox(height: 12),
+                            ...List.generate(question.options.length, (oIndex) {
+                              final isSelected = selectedAnswer == oIndex;
+                              final isThisCorrect = oIndex == question.correctAnswerIndex;
+                              Color? tileColor;
+                              Color? activeColor;
+
+                              if (isLocked) {
+                                if (isSelected) {
+                                  tileColor = isCorrect
+                                    ? Colors.green.withValues(alpha: 0.2)
+                                    : Colors.red.withValues(alpha: 0.2);
+                                  activeColor = isCorrect ? Colors.green : Colors.red;
+                                } else if (isThisCorrect) {
+                                  // Show correct answer even if not selected
+                                  tileColor = Colors.green.withValues(alpha: 0.1);
+                                }
+                              }
+
+                              return RadioListTile<int>(
+                                title: Text(question.options[oIndex]),
+                                value: oIndex,
+                                groupValue: selectedAnswer,
+                                onChanged: isLocked ? null : (value) {
+                                  final correct = value == question.correctAnswerIndex;
+                                  setState(() {
+                                    _quizAnswers[qIndex] = value;
+                                    _lockedQuestions.add(qIndex);
+                                    if (!correct) {
+                                      _shakeQuestion[qIndex] = true;
+                                    }
+                                  });
+                                },
+                                tileColor: tileColor,
+                                activeColor: activeColor ?? Colors.purple,
+                              );
+                            }),
+                            if (isLocked) ...[
+                              const SizedBox(height: 8),
+                              Container(
+                                padding: const EdgeInsets.all(12),
+                                decoration: BoxDecoration(
+                                  color: isCorrect
+                                    ? Colors.green.withValues(alpha: 0.2)
+                                    : Colors.red.withValues(alpha: 0.2),
+                                  borderRadius: BorderRadius.circular(8),
+                                  border: Border.all(
+                                    color: isCorrect ? Colors.green : Colors.red,
+                                    width: 2,
+                                  ),
+                                ),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Row(
+                                      children: [
+                                        Icon(
+                                          isCorrect ? Icons.check_circle : Icons.cancel,
+                                          color: isCorrect ? Colors.green : Colors.red,
+                                          size: 20,
+                                        ),
+                                        const SizedBox(width: 8),
+                                        Text(
+                                          isCorrect ? 'Correct!' : 'Incorrect',
+                                          style: TextStyle(
+                                            color: isCorrect ? Colors.green : Colors.red,
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 8),
+                                    Text(
+                                      question.explanation,
+                                      style: const TextStyle(fontSize: 13),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
                           ],
-                        ],
+                        ),
                       ),
                     ),
                   );
@@ -530,26 +584,7 @@ class _WorksheetDetailScreenState extends State<_WorksheetDetailScreen> {
             ),
 
             const SizedBox(height: 16),
-            if (!_showQuizResults && allQuizAnswered)
-              ElevatedButton.icon(
-                onPressed: () {
-                  setState(() {
-                    _showQuizResults = true;
-                  });
-                },
-                icon: const Icon(Icons.grading),
-                label: const Text('Check Answers'),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.purple,
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                ),
-              ),
-
-            if (_showQuizResults) ...[
-              const SizedBox(height: 16),
-              _buildQuizScore(),
-            ],
+            if (allQuizAnswered) _buildQuizScore(),
 
             const SizedBox(height: 24),
             if (!widget.isCompleted && allStepsChecked && allOverToYouChecked)
